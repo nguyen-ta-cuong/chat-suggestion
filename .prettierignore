@@ -1,0 +1,13 @@
+node_modules/
+dist/
+coverage/
+package-lock.json
+LICENSE
+
+# Living product documents are formatted only by their owning plans.
+AGENTS.md
+PLANS.md
+PRD.md
+README.md
+plans/*.md
+!plans/0001-bootstrap-and-freeze-contracts.md
