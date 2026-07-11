@@ -1,0 +1,11 @@
+# macOS
+.DS_Store
+
+# Pi local state
+.pi-loop.json
+.pi-loop.json.lock
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
