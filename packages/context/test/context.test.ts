@@ -17,6 +17,7 @@ import {
   collectContext,
   createCollectors,
   createDefaultContextPolicy,
+  isDenied,
   previewContext,
   runGit,
   type CollectedSource,
@@ -37,6 +38,16 @@ afterEach(async () => {
 });
 
 describe("context assembly", () => {
+  it("applies leading globstars to root and nested secret paths", () => {
+    const patterns = ["**/credentials*", "**/*.secret"];
+
+    expect(isDenied("credentials-prod", patterns)).toBe(true);
+    expect(isDenied("nested/credentials-prod", patterns)).toBe(true);
+    expect(isDenied("token.secret", patterns)).toBe(true);
+    expect(isDenied("nested/token.secret", patterns)).toBe(true);
+    expect(isDenied("safe.txt", patterns)).toBe(false);
+  });
+
   it("never serializes host-supplied raw content into cache keys", () => {
     const input = assemblyInput(process.cwd(), {
       recentChat: [{ role: "user", content: "raw-private-chat" }],

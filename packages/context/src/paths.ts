@@ -82,10 +82,20 @@ function matchesPattern(relativePath: string, rawPattern: string): boolean {
   if (!pattern.includes("*")) {
     return relativePath === pattern || relativePath.startsWith(`${pattern}/`);
   }
-  const expression = pattern
-    .split("**")
-    .map((part) => part.split("*").map(escapeRegExp).join("[^/]*"))
-    .join(".*");
+  let expression = "";
+  for (let index = 0; index < pattern.length; index += 1) {
+    if (pattern.startsWith("**/", index)) {
+      expression += "(?:.*/)?";
+      index += 2;
+    } else if (pattern.startsWith("**", index)) {
+      expression += ".*";
+      index += 1;
+    } else if (pattern[index] === "*") {
+      expression += "[^/]*";
+    } else {
+      expression += escapeRegExp(pattern[index] ?? "");
+    }
+  }
   return new RegExp(`^(?:${expression})$`, "u").test(relativePath);
 }
 
