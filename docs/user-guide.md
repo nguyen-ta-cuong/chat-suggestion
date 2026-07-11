@@ -116,8 +116,11 @@ the [Plan 0011 request](../artifacts/contract-change-requests/0011.md).
 
 You can run the verified disposable offline smoke extension. It uses /tmp, no
 provider, tools, saved session, extension discovery, or project-context files.
-Type fix auth without submitting, wait about 150 ms for dim end-of-line text,
-then try Tab and Escape. Exit with Ctrl-D on an empty editor.
+Type any three non-whitespace characters, such as fix auth, without submitting,
+then wait about 150 ms for the deterministic dim end-of-line text. Try Tab and
+Escape. This checks editor rendering and key handling only; it does not make a
+real completion request. Pi's separate “No models available” warning does not
+affect this offline check. Exit with Ctrl-D on an empty editor.
 
 <!-- user-guide-command: pi-smoke -->
 
