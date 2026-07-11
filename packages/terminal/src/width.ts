@@ -10,7 +10,7 @@ export function graphemeWidth(grapheme: string): number {
   if (grapheme === "\n" || grapheme === "\r") return 0;
   if (grapheme === "\t") return 4;
   if (emoji.test(grapheme)) return 2;
-  const base = [...grapheme].find(
+  const base = Array.from(grapheme).find(
     (character) => !combiningMark.test(character),
   );
   if (base === undefined) return 0;
@@ -48,6 +48,7 @@ export function renderDimSuggestion(
 
 function sanitizeSingleLine(value: string): string {
   const withoutEscapes = value.replace(
+    // eslint-disable-next-line no-control-regex -- terminal escape parsing intentionally matches control bytes
     /\u001b(?:\[[0-?]*[ -/]*[@-~]|\][^\u0007\u001b]*(?:\u0007|\u001b\\|$)|P[^\u001b]*(?:\u001b\\|$)|[@-_]?)/gu,
     "",
   );
