@@ -12,6 +12,9 @@
   "files": [
     "dist"
   ],
+  "bin": {
+    "chat-suggestion-tui-fixture": "dist/index.js"
+  },
   "dependencies": {
     "@chat-suggestion/protocol": "0.1.0"
   },
