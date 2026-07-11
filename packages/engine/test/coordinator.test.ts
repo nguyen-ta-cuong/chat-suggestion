@@ -169,6 +169,24 @@ describe("SuggestionCoordinator", () => {
     expect(harness.coordinator.state().phase).toBe("idle");
   });
 
+  it("keeps a visible suggestion when the host republishes identical input", async () => {
+    const harness = createHarness();
+    const input = createInput(1, "stable input");
+    harness.coordinator.update(input);
+    harness.scheduler.advanceBy(200);
+    await flushPromises();
+
+    harness.coordinator.update(input);
+
+    expect(harness.surface.shown).toHaveLength(1);
+    expect(harness.surface.cleared).toHaveLength(0);
+    expect(harness.scheduler.pendingCount()).toBe(0);
+    expect(harness.coordinator.state()).toMatchObject({
+      phase: "visible",
+      revision: 1,
+    });
+  });
+
   it("leaves native completion and Tab behavior unconsumed", () => {
     const harness = createHarness();
     const input = createInput(1, "native completion", {

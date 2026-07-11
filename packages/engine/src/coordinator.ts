@@ -90,6 +90,13 @@ export class SuggestionCoordinator {
 
     const nextInput = freezeInput(input, snapshotResult.value);
     const nextInputKey = createInputKey(nextInput.snapshot);
+    if (
+      nextInputKey === this.#inputKey &&
+      this.#input !== undefined &&
+      sameEligibilityState(this.#input, nextInput)
+    ) {
+      return;
+    }
     const clearReason = reasonForUpdate(this.#input, nextInput);
     this.#invalidate(clearReason);
 
@@ -391,6 +398,21 @@ export class SuggestionCoordinator {
       // Metrics are observational and cannot affect editor behavior.
     }
   }
+}
+
+function sameEligibilityState(
+  left: SuggestionInput,
+  right: SuggestionInput,
+): boolean {
+  return (
+    left.enabled === right.enabled &&
+    left.focused === right.focused &&
+    left.hostIdle === right.hostIdle &&
+    left.imeComposing === right.imeComposing &&
+    left.nativeCompletionVisible === right.nativeCompletionVisible &&
+    left.hiddenInput === right.hiddenInput &&
+    left.layoutKnown === right.layoutKnown
+  );
 }
 
 const systemScheduler: SuggestionScheduler = {
