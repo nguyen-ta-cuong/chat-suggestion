@@ -1,8 +1,10 @@
 {
   "name": "@chat-suggestion/adapter-pi",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -13,9 +15,17 @@
     "dist"
   ],
   "keywords": [
-    "pi-package"
+    "pi-package",
+    "pi-extension",
+    "inline-completion"
   ],
+  "pi": {
+    "extensions": [
+      "./dist/production-extension.js"
+    ]
+  },
   "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
     "@earendil-works/pi-coding-agent": "*",
     "@earendil-works/pi-tui": "*"
   },
@@ -25,6 +35,15 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run --config vitest.config.ts"
-  }
+    "test": "vitest run --config vitest.config.ts",
+    "test:package": "node scripts/verify-package.mjs"
+  },
+  "description": "This package provides the public-API-only Pi editor adapter for chat suggestions. It was verified against `@earendil-works/pi-coding-agent` 0.80.6 and its bundled `@earendil-works/pi-tui` package.",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "devDependencies": {},
+  "author": "",
+  "license": "ISC"
 }

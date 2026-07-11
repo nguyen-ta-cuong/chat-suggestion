@@ -1,5 +1,9 @@
 export { createPiSuggestionExtension } from "./pi-extension.js";
 export {
+  createPiModelSuggestionBridge,
+  type PiModelBridgeOptions,
+} from "./pi-model-bridge.js";
+export {
   PI_NATIVE_CAPABILITIES,
   PiSuggestionEditor,
   type PiEditorOptions,

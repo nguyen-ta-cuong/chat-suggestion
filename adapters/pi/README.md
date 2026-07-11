@@ -4,7 +4,23 @@ This package provides the public-API-only Pi editor adapter for chat suggestions
 
 The native capability is deliberately narrow: `transport: native`, `inlineRender: eol-only`, atomic insertion through `insertTextAtCursor()`, cancellation, resize invalidation, and native autocomplete awareness. The suggestion is rendered from `CustomEditor.render()` output without changing `getText()`. It is limited to one visual line at the logical end of the draft. Any cursor ambiguity, resize, native autocomplete, session change, or unsupported mode clears the decoration. If another extension already owns the custom editor factory, this adapter reports `none` and leaves that editor untouched.
 
-The package lists Pi core modules as `peerDependencies` with the `*` range, as required by Pi's package documentation. Plan 0010 owns application wiring; consumers inject a `SuggestionBridge` into `createPiSuggestionExtension()`.
+The package lists Pi core modules and `@earendil-works/pi-ai` as `peerDependencies` with the `*` range, as required by Pi's package documentation. The default `pi.extensions` entry is model-backed and uses the model and credentials selected inside Pi. If no model or credentials resolve, it stays silent and leaves the editor unchanged. The deterministic smoke bridge remains under `adapters/pi/smoke/` and is not reachable from the published entry point.
+
+After the package and its public protocol dependency are published, install it
+with Pi's package manager:
+
+    pi install npm:@chat-suggestion/adapter-pi
+
+For a local, credential-free load check, build first and point Pi at the
+compiled production entry. This does not make a provider request until you
+type in a TUI with a selected model:
+
+    npm run build
+    pi -e "$PWD/adapters/pi/dist/production-extension.js"
+
+The model-backed path sends the bounded draft to Pi's selected provider. Review
+that provider's privacy and billing settings before trying it. Do not use the
+offline smoke extension as evidence that model auth is configured.
 
 ## Commands
 
