@@ -173,6 +173,12 @@ describe("Claude capability probing", () => {
     expect((await cache.probe({ executablePath: executable })).version).toBe(
       "1.2.3",
     );
+    await expect(
+      cache.probe({ executablePath: executable, maximumOutputBytes: 1 }),
+    ).resolves.toMatchObject({
+      status: "error",
+      downgradeReasons: ["probe-output-limit"],
+    });
     const changed = (await readFile(executable, "utf8")).replace(
       "1.2.3",
       "9.9.9",

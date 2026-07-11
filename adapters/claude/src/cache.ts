@@ -23,7 +23,13 @@ export class ClaudeCapabilityProbeCache {
     ) {
       return await probeClaude(options);
     }
-    const key = `${options.executablePath ?? "PATH"}\0${options.pathEnvironment ?? process.env.PATH ?? ""}`;
+    const key = JSON.stringify({
+      executablePath: options.executablePath ?? "PATH",
+      pathEnvironment: options.pathEnvironment ?? process.env.PATH ?? "",
+      timeoutMs: options.timeoutMs,
+      nativeHandshakeTimeoutMs: options.nativeHandshakeTimeoutMs,
+      maximumOutputBytes: options.maximumOutputBytes,
+    });
     const cached = this.#entries.get(key);
     if (cached !== undefined && cached.expiresAt > this.now()) {
       return cached.report;
