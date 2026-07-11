@@ -73,6 +73,7 @@ export class PiSuggestionEditor extends CustomEditor {
   private requestSequence = 0;
   private enabled: boolean;
   private candidate: SuggestionCandidate | undefined;
+  private candidateSnapshot: PromptSnapshot | undefined;
   private generation: AbortController | undefined;
   private debounceTimer: ReturnType<typeof setTimeout> | undefined;
   private lastRenderWidth?: number;
@@ -110,6 +111,7 @@ export class PiSuggestionEditor extends CustomEditor {
       this.debounceTimer !== undefined;
     this.cancelPending();
     this.candidate = undefined;
+    this.candidateSnapshot = undefined;
     if (hadWork) {
       this.onClear?.(reason);
       this.tui.requestRender();
@@ -149,6 +151,7 @@ export class PiSuggestionEditor extends CustomEditor {
     }
     this.cancelPending();
     this.candidate = undefined;
+    this.candidateSnapshot = undefined;
     super.handleInput(data);
     if (data.includes("\u001b[201~")) {
       this.pasteInProgress = false;
@@ -253,6 +256,7 @@ export class PiSuggestionEditor extends CustomEditor {
         return;
       }
       this.candidate = candidate;
+      this.candidateSnapshot = snapshot;
       this.tui.requestRender();
     } catch {
       if (this.generation === controller) {
@@ -319,14 +323,15 @@ export class PiSuggestionEditor extends CustomEditor {
 
   private acceptCurrentCandidate(): void {
     const candidate = this.candidate;
-    if (!candidate) return;
-    const snapshot = this.createSnapshot(this.capturePosition());
+    const snapshot = this.candidateSnapshot;
+    if (!candidate || !snapshot) return;
     if (!this.isCandidateCurrent(candidate, snapshot, candidate.requestId)) {
       this.clear("stale");
       return;
     }
 
     this.candidate = undefined;
+    this.candidateSnapshot = undefined;
     this.cancelPending();
     this.insertTextAtCursor(candidate.edit.text);
     this.revision += 1;

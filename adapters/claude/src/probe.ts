@@ -180,29 +180,37 @@ async function runBounded(
     const chunks: Buffer[] = [];
     let bytes = 0;
     let settled = false;
+    let forcedError: Error | undefined;
+    let reapFallback: ReturnType<typeof setTimeout> | undefined;
     const finish = (error?: Error): void => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
+      if (reapFallback !== undefined) clearTimeout(reapFallback);
       if (error !== undefined) reject(error);
       else resolve(Buffer.concat(chunks).toString("utf8"));
     };
     const collect = (chunk: Buffer): void => {
       bytes += chunk.length;
       if (bytes > maximumBytes) {
+        forcedError = codeError("probe-output-limit");
         child.kill("SIGKILL");
-        finish(codeError("probe-output-limit"));
+        reapFallback ??= setTimeout(() => finish(forcedError), timeoutMs);
       } else chunks.push(chunk);
     };
     child.stdout.on("data", collect);
     child.stderr.on("data", collect);
     child.once("error", (error) => finish(error));
-    child.once("close", (code) =>
-      finish(code === 0 ? undefined : codeError("probe-exit-nonzero")),
-    );
+    child.once("close", (code) => {
+      finish(
+        forcedError ??
+          (code === 0 ? undefined : codeError("probe-exit-nonzero")),
+      );
+    });
     const timer = setTimeout(() => {
+      forcedError = codeError("probe-timeout");
       child.kill("SIGKILL");
-      finish(codeError("probe-timeout"));
+      reapFallback ??= setTimeout(() => finish(forcedError), timeoutMs);
     }, timeoutMs);
   });
 }

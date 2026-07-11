@@ -13,7 +13,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   ContextAssembler,
+  collectorCacheKey,
   collectContext,
+  createCollectors,
   createDefaultContextPolicy,
   previewContext,
   runGit,
@@ -35,6 +37,55 @@ afterEach(async () => {
 });
 
 describe("context assembly", () => {
+  it("never serializes host-supplied raw content into cache keys", () => {
+    const input = assemblyInput(process.cwd(), {
+      recentChat: [{ role: "user", content: "raw-private-chat" }],
+      attachments: [
+        {
+          name: "note.txt",
+          content: "raw-private-attachment",
+          explicit: true,
+          textual: true,
+        },
+      ],
+    });
+    const policy = createDefaultContextPolicy(input.snapshot.workingDirectory);
+    const collectors = createCollectors(input, policy);
+
+    expect(
+      collectors
+        .filter((collector) => collector.sourceId !== "project")
+        .every(
+          (collector) => collectorCacheKey(collector, input, policy) === null,
+        ),
+    ).toBe(true);
+    const project = collectors.find(
+      (collector) => collector.sourceId === "project",
+    );
+    expect(project).toBeDefined();
+    const key = project && collectorCacheKey(project, input, policy);
+    expect(key).not.toContain("raw-private");
+  });
+
+  it("bounds host-supplied collector cardinality before collection", () => {
+    const attachments = Array.from({ length: 100 }, (_, index) => ({
+      name: `note-${index}.txt`,
+      content: "x".repeat(100_000),
+      explicit: true,
+      textual: true,
+    }));
+    const input = assemblyInput(process.cwd(), { attachments });
+    const collectors = createCollectors(
+      input,
+      createDefaultContextPolicy(process.cwd()),
+    );
+
+    expect(
+      collectors.filter((collector) =>
+        collector.sourceId.startsWith("attachment:"),
+      ),
+    ).toHaveLength(32);
+  });
   it("collects only trusted, explicit, in-root text and redacts fake secrets", async () => {
     const { root, outside } = await createAdversarialRepository();
     const policy = createDefaultContextPolicy(root);

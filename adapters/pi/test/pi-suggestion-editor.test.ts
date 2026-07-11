@@ -106,6 +106,22 @@ describe("PiSuggestionEditor key arbitration and freshness", () => {
     expect(editor.getText()).toBe("a tests");
   });
 
+  it("rejects a visible candidate after programmatic text mutation", async () => {
+    vi.useFakeTimers();
+    const cleared: string[] = [];
+    const editor = createEditor(immediateBridge(" tests"), (reason) =>
+      cleared.push(reason),
+    );
+    editor.handleInput("a");
+    await vi.runAllTimersAsync();
+
+    editor.setText("different");
+    editor.handleInput("\t");
+
+    expect(editor.getText()).toBe("different");
+    expect(cleared).toContain("stale");
+  });
+
   it("dismisses the first Escape and delegates the next one", async () => {
     vi.useFakeTimers();
     const editor = createEditor(immediateBridge(" tests"));

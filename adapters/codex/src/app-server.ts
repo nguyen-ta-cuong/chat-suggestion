@@ -234,13 +234,15 @@ async function terminateAndReap(
   child.stdin.end();
   child.kill("SIGTERM");
   await new Promise<void>((resolve) => {
+    let killFallback: ReturnType<typeof setTimeout> | undefined;
     const timer = setTimeout(() => {
       child.kill("SIGKILL");
-      resolve();
+      killFallback = setTimeout(resolve, timeoutMs);
     }, timeoutMs);
     timer.unref();
     child.once("close", () => {
       clearTimeout(timer);
+      if (killFallback !== undefined) clearTimeout(killFallback);
       resolve();
     });
   });
