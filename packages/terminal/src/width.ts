@@ -1,6 +1,8 @@
 const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 const combiningMark = /\p{Mark}/u;
 const emoji = /\p{Extended_Pictographic}/u;
+const regionalIndicatorFlag = /^\p{Regional_Indicator}{2}$/u;
+const keycapSequence = /^[#*0-9]\uFE0F?\u20E3$/u;
 
 export function graphemes(value: string): string[] {
   return [...segmenter.segment(value)].map((segment) => segment.segment);
@@ -9,7 +11,12 @@ export function graphemes(value: string): string[] {
 export function graphemeWidth(grapheme: string): number {
   if (grapheme === "\n" || grapheme === "\r") return 0;
   if (grapheme === "\t") return 4;
-  if (emoji.test(grapheme)) return 2;
+  if (
+    emoji.test(grapheme) ||
+    regionalIndicatorFlag.test(grapheme) ||
+    keycapSequence.test(grapheme)
+  )
+    return 2;
   const base = Array.from(grapheme).find(
     (character) => !combiningMark.test(character),
   );

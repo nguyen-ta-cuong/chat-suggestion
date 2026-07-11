@@ -29,6 +29,13 @@ describe("terminal width", () => {
     expect(truncateToWidth("a界😀b", 4)).toBe("a界");
   });
 
+  it("counts flag and keycap grapheme clusters as two terminal cells", () => {
+    expect(displayWidth("🇺🇸")).toBe(2);
+    expect(displayWidth("1️⃣")).toBe(2);
+    expect(truncateToWidth("🇺🇸x", 1)).toBe("");
+    expect(truncateToWidth("1️⃣x", 2)).toBe("1️⃣");
+  });
+
   it("renders a bounded dim single line", () => {
     expect(renderDimSuggestion("界ab\nignored", 3)).toBe(
       "\u001b[2m界a\u001b[22m",
