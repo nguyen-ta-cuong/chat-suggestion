@@ -76,6 +76,10 @@ A PTY wrapper is an experimental fallback, not proof of semantic editor access. 
 
 User-facing commands, configuration paths, environment variables, supported platforms, capability claims, and uninstall steps require observed, redacted evidence from the completed implementation. Never infer them from a product name, configuration directory, earlier plan, or plausible CLI convention. Offline fake-provider onboarding comes first. Remote-provider and PTY procedures need visible warnings and must not be run automatically by documentation tests. Documentation must not contain real keys, prompts, context, auth headers, private paths, or raw sessions.
 
+The canonical end-user handoff is [`docs/user-guide.md`](docs/user-guide.md).
+Update its command manifest, test, and redacted evidence together whenever a
+documented command changes.
+
 ## Definition of done
 
 A packet is done only when its owned behavior is demonstrable, its required checks pass, the plan is updated as a living document, no raw sensitive content is logged, cancellation and stale-result tests exist, and no files outside ownership were modified.
