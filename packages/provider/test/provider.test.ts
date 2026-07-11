@@ -239,6 +239,17 @@ describe("OpenAICompatibleSuggestionProvider", () => {
     expect(fixture.requests).toHaveLength(2);
   });
 
+  it("charges every retry attempt against the remote request budget", async () => {
+    fixture.respondSequence([
+      { status: 503, body: "busy" },
+      { status: 200, body: JSON.stringify({ choices: [{ text: " tests" }] }) },
+    ]);
+    const provider = createProvider(fixture.endpoint, { requestsPerHour: 2 });
+    await expectProviderResult(provider, " tests");
+    await expectProviderCode(provider, "rate-limited");
+    expect(fixture.requests).toHaveLength(2);
+  });
+
   it("does not retry a non-retryable status", async () => {
     fixture.respond(400, "bad request");
     await expectProviderCode(createProvider(fixture.endpoint), "http-client");

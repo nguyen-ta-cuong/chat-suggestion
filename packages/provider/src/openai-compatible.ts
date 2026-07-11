@@ -87,7 +87,6 @@ export class OpenAICompatibleSuggestionProvider implements SuggestionProvider {
     try {
       signal.throwIfAborted();
       this.#cooldown.assertAvailable();
-      this.#bucket.take();
       const body = this.#createBody(request);
       requestBytes = Buffer.byteLength(body, "utf8");
       const response = await this.#sendWithOneRetry(body, signal);
@@ -159,6 +158,7 @@ export class OpenAICompatibleSuggestionProvider implements SuggestionProvider {
     signal: AbortSignal,
   ): Promise<Response> {
     for (let attempt = 0; attempt < 2; attempt += 1) {
+      this.#bucket.take();
       const response = await this.#send(body, signal);
       if (response.ok) return response;
       if (attempt === 0 && RETRYABLE_STATUS.has(response.status)) {
