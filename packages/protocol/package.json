@@ -1,8 +1,10 @@
 {
   "name": "@chat-suggestion/protocol",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",

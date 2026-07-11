@@ -17,15 +17,17 @@ Recorded 2026-07-11 on macOS 15 (Darwin 25.5.0, arm64) with Node 24.16.0, npm
   `npm run chat-suggest -- context preview --provider fake --trust-project`
   exited 0 and made no provider call. Its envelope content is intentionally not
   reproduced here because preview output is sensitive.
-- `pi-install-path`: `npm run chat-suggest -- pi install-path` exited 0 and
-  returned the local adapter package directory; the path is omitted here.
+- `pi-package`: `npm run test:package --workspace @chat-suggestion/adapter-pi`
+  exited 0 after packing the protocol and Pi artifacts into temporary tarballs,
+  installing them without workspace links, and verifying the `pi.extensions`
+  production entry. No package was published.
 - `pi-smoke`: the documented explicit-extension smoke command is a manual Pi TUI
   check. It uses `PI_OFFLINE=1`, no tools, no session, no extension discovery,
   and the deterministic fake bridge.
 - `pty-refusal`: with both required opt-ins, the wrapper exited 78 before child
   launch and reported that no exact fixture-tested PTY profile matched.
 
-The Pi local-package installer itself was also tested. It accepted the package
-directory, but Pi could not load that directory as an extension at startup. See
-[`artifacts/contract-change-requests/0011.md`](../../artifacts/contract-change-requests/0011.md);
-the guide does not advertise that installation as working.
+The model-backed Pi path was not run automatically because it requires a
+selected provider, credentials, and explicit acknowledgement that the bounded
+draft may be transmitted. The offline Pi smoke path remains the credential-free
+rendering proof.

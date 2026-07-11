@@ -8,6 +8,7 @@ export default tseslint.config(
       "**/coverage/**",
       "**/node_modules/**",
       "docs/test/**/*.mjs",
+      "adapters/pi/scripts/**/*.mjs",
     ],
   },
   eslint.configs.recommended,

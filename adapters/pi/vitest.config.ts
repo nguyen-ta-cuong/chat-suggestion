@@ -16,8 +16,16 @@ const tuiEntry = join(
   "dist",
   "index.js",
 );
+const piAiEntry = join(
+  piRoot,
+  "node_modules",
+  "@earendil-works",
+  "pi-ai",
+  "dist",
+  "compat.js",
+);
 
-if (!existsSync(piEntry) || !existsSync(tuiEntry)) {
+if (!existsSync(piEntry) || !existsSync(tuiEntry) || !existsSync(piAiEntry)) {
   throw new Error(
     "Pi public-API tests require an installed @earendil-works/pi-coding-agent; checked npm root -g",
   );
@@ -28,6 +36,7 @@ export default defineConfig({
     alias: {
       "@earendil-works/pi-coding-agent": piEntry,
       "@earendil-works/pi-tui": tuiEntry,
+      "@earendil-works/pi-ai/compat": piAiEntry,
     },
   },
 });

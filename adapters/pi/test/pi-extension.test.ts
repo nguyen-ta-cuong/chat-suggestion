@@ -77,6 +77,11 @@ function createHarness(
     mode,
     cwd: "/fixture",
     sessionManager: { getSessionId: () => "session-1" },
+    modelRegistry: {
+      getApiKeyAndHeaders: () =>
+        Promise.resolve({ ok: false as const, error: "not configured" }),
+    },
+    model: undefined,
     ui: {
       theme: { fg: (_color, text) => text },
       notify,

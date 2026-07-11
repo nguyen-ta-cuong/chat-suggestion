@@ -70,7 +70,10 @@ test("user guide has a complete safe command manifest and valid local links", as
   assert.match(guide, /Experimental PTY/u);
   assert.match(guide, /stock Codex\s+TUI.*not\s+supported/isu);
   assert.match(guide, /stock Claude\s+TUI.*not\s+supported/isu);
-  assert.match(guide, /durable\s+Pi\s+installation\s+is\s+unavailable/iu);
+  assert.match(
+    guide,
+    /package now has a Pi.*release is not published by this checkout/isu,
+  );
   assert.equal(secretPattern.test(guide), false);
   assert.equal(privatePathPattern.test(guide), false);
 

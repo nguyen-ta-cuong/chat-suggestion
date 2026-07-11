@@ -27,6 +27,20 @@ declare module "@earendil-works/pi-tui" {
 declare module "@earendil-works/pi-coding-agent" {
   import type { EditorTheme, TUI } from "@earendil-works/pi-tui";
 
+  export const VERSION: string;
+
+  export interface PiModelRegistry {
+    getApiKeyAndHeaders(model: unknown): Promise<
+      | {
+          ok: true;
+          apiKey?: string;
+          headers?: Record<string, string>;
+          env?: Record<string, string>;
+        }
+      | { ok: false; error: string }
+    >;
+  }
+
   export interface KeybindingsManager {
     matches(data: string, action: string): boolean;
   }
@@ -72,6 +86,8 @@ declare module "@earendil-works/pi-coding-agent" {
     readonly cwd: string;
     readonly ui: ExtensionUIContext;
     readonly sessionManager: ReadonlySessionManager;
+    readonly modelRegistry: PiModelRegistry;
+    readonly model: unknown;
   }
 
   export interface ExtensionAPI {
@@ -93,4 +109,38 @@ declare module "@earendil-works/pi-coding-agent" {
       },
     ): void;
   }
+}
+
+declare module "@earendil-works/pi-ai/compat" {
+  export interface TextContent {
+    readonly type: "text";
+    readonly text: string;
+  }
+
+  export interface Message {
+    readonly role: "user";
+    readonly content: string | readonly TextContent[];
+    readonly timestamp: number;
+  }
+
+  export interface CompletionOptions {
+    readonly signal?: AbortSignal;
+    readonly maxTokens?: number;
+    readonly temperature?: number;
+    readonly apiKey?: string;
+    readonly headers?: Record<string, string>;
+    readonly env?: Record<string, string>;
+  }
+
+  export interface AssistantMessage {
+    readonly content: readonly TextContent[];
+    readonly stopReason: string;
+    readonly usage?: { readonly output?: number };
+  }
+
+  export function completeSimple(
+    model: unknown,
+    context: { systemPrompt?: string; messages: readonly Message[] },
+    options?: CompletionOptions,
+  ): Promise<AssistantMessage>;
 }

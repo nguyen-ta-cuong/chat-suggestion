@@ -109,10 +109,23 @@ priority. When a current suggestion is visible, Tab inserts it once and Escape
 clears it. Editor conflicts, cursor/layout ambiguity, resize, paste, and session
 changes clear the decoration.
 
-The checked-in adapter is a library that requires application wiring. A durable
-Pi installation is unavailable in this release: Pi accepts the package directory
-but cannot load it as an extension. Do not use pi install for this adapter. See
-the [Plan 0011 request](../artifacts/contract-change-requests/0011.md).
+The package now has a Pi `pi.extensions` entry and uses the model selected in
+Pi. It stays silent when Pi has no selected model or cannot resolve credentials.
+After the package and its public protocol dependency are published, install it
+with Pi's documented package manager:
+
+    pi install npm:@chat-suggestion/adapter-pi
+
+The release is not published by this checkout. Until a release is available,
+build locally and load the compiled entry with `pi -e`:
+
+    npm run build
+    pi -e "$PWD/adapters/pi/dist/production-extension.js"
+
+This is a model-backed path: typing in Pi can send the bounded draft to the
+selected provider. Review provider privacy and billing settings first. The
+offline smoke extension below remains the credential-free rendering proof and
+does not exercise model auth.
 
 You can run the verified disposable offline smoke extension. It uses /tmp, no
 provider, tools, saved session, extension discovery, or project-context files.
@@ -130,6 +143,12 @@ This is a manual-host check. Remove /tmp/chat-suggestion-pi-smoke after the
 smoke session if desired.
 
 ## Codex, Claude, and experimental PTY
+
+The repository also includes installable companion plugin directories under
+`plugins/codex-chat-suggestion/` and `plugins/claude-chat-suggestion/`. Their
+`chat-suggest` skills are manual, post-submit continuations only. The stock
+Codex and Claude editors still report `inlineRender: none`; neither plugin can
+observe a live draft or paint ghost text.
 
 Executable discovery is not semantic editor access. The stock Codex TUI is not
 supported for inline suggestions. A separately built custom frontend may use a
