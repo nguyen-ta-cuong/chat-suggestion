@@ -90,6 +90,22 @@ describe("PtyProfile", () => {
     expect(mismatch.profile.capabilities().inlineRender).toBe("none");
   });
 
+  it("derives split prompt handshake markers from the child output stream", () => {
+    const { profile } = compile();
+
+    for (const chunk of [
+      "\u001b",
+      "]13",
+      "3;A",
+      "\u0007\u001b]",
+      "133;B\u0007",
+    ]) {
+      profile.observeOutput(Buffer.from(chunk, "latin1"));
+    }
+
+    expect(profile.state).toEqual({ kind: "ready" });
+  });
+
   it("tracks only printable append/backspace and fails closed on ambiguity", () => {
     const { profile } = compile();
     handshake(profile);

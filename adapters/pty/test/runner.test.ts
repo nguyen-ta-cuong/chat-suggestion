@@ -49,10 +49,6 @@ function setup() {
   if (!compiled.ok) {
     throw new Error(compiled.error.message);
   }
-  compiled.value.profile.observeMarker("prompt-start");
-  compiled.value.profile.observeInput(
-    Buffer.from(FAKE_REQUEST.snapshot.text, "utf8"),
-  );
   const terminal = new SyntheticTerminal();
   const backend = new SyntheticPtyBackend();
   const signals = new SyntheticSignals();
@@ -113,6 +109,8 @@ describe("PtyRunner", () => {
   it("injects only accepted suffix bytes and never submit", async () => {
     const { backend, controller, options, terminal } = setup();
     const run = new PtyRunner().run(options);
+    backend.child.emitData(Buffer.from("\u001b]133;A\u0007", "latin1"));
+    terminal.emitData(Buffer.from(FAKE_REQUEST.snapshot.text, "utf8"));
     controller.show(FAKE_REQUEST, createFakeSuggestionCandidate(FAKE_REQUEST));
     terminal.emitData(Uint8Array.of(0x09));
     backend.child.emitExit({ exitCode: 0 });
@@ -120,8 +118,8 @@ describe("PtyRunner", () => {
 
     expect(
       backend.child.writes.map((bytes) => Buffer.from(bytes).toString("utf8")),
-    ).toEqual([" tests"]);
-    expect(backend.child.writes[0]).not.toContain(0x0d);
+    ).toEqual([FAKE_REQUEST.snapshot.text, " tests"]);
+    expect(backend.child.writes[1]).not.toContain(0x0d);
   });
 
   it("forwards resize storms and signals, then removes every listener", async () => {

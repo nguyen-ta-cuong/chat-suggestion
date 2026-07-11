@@ -52,6 +52,9 @@ const ESCAPE = "\u001b";
 const ALTERNATE_SCREEN_PATTERN = /^\[\?(?:47|1047|1049)[hl]/u;
 const REDRAW_PATTERN = /^\[(?:2J|H|[0-9;]*[ABCD])/u;
 const CURSOR_MOTION_PATTERN = /^\[(?:[ABCDHF]|[0-9;]*[~ABCD])/u;
+// eslint-disable-next-line no-control-regex -- OSC prompt markers are terminal control sequences
+const PROMPT_MARKER_PATTERN = /\u001b\]133;([AB])(?:\u0007|\u001b\\)/gu;
+const PROMPT_MARKER_PREFIX = `${ESCAPE}]133;`;
 
 export class PtyProfile {
   readonly #descriptor: PtyProfileDescriptor;
@@ -62,6 +65,7 @@ export class PtyProfile {
   #state: PtyConfidenceState;
   #draft = "";
   #hidden = false;
+  #outputBuffer = "";
 
   constructor(descriptor: PtyProfileDescriptor, matched: boolean) {
     this.#descriptor = descriptor;
@@ -117,6 +121,10 @@ export class PtyProfile {
       this.#restartHandshake();
       return;
     }
+    if (marker === "prompt-start") {
+      this.#draft = "";
+      this.#decoder = new TextDecoder("utf-8", { fatal: true });
+    }
     this.#seenHandshakeMarkers.add(marker);
     if (this.#hasCompleteHandshake()) {
       this.#state = { kind: "ready" };
@@ -152,15 +160,61 @@ export class PtyProfile {
   }
 
   observeOutput(bytes: Uint8Array): void {
-    if (bytes.length === 0 || this.#state.kind !== "ready") {
+    if (bytes.length === 0 || !this.#matched) return;
+    let data = this.#outputBuffer + Buffer.from(bytes).toString("latin1");
+    this.#outputBuffer = "";
+    if (this.#descriptor.detectors.includes("output-mode")) {
+      data = data.replace(PROMPT_MARKER_PATTERN, (_sequence, code: string) => {
+        if (
+          code === "A" &&
+          this.#hidden &&
+          this.#descriptor.markers.includes("hidden-input-end")
+        ) {
+          this.observeMarker("hidden-input-end");
+        }
+        const marker = code === "A" ? "prompt-start" : "prompt-end";
+        if (this.#descriptor.markers.includes(marker)) {
+          this.observeMarker(marker);
+        }
+        return "";
+      });
+      const incompleteIndex = incompletePromptMarkerIndex(data);
+      if (incompleteIndex !== undefined) {
+        this.#outputBuffer = data.slice(incompleteIndex, incompleteIndex + 64);
+        data = data.slice(0, incompleteIndex);
+      }
+    }
+    if (
+      this.#descriptor.detectors.includes("hidden-input") &&
+      /password|passphrase/iu.test(data)
+    ) {
+      if (this.#descriptor.markers.includes("hidden-input-start")) {
+        this.observeMarker("hidden-input-start");
+      } else {
+        this.suspend("hidden-input");
+      }
       return;
     }
-    const data = Buffer.from(bytes).toString("latin1");
-    if (containsEscapeSequence(data, ALTERNATE_SCREEN_PATTERN)) {
+    if (
+      this.#descriptor.detectors.includes("completion-ui") &&
+      /completion|menu/iu.test(data)
+    ) {
+      this.suspend("completion-ownership-unknown");
+      return;
+    }
+    if (data.length === 0 || this.#state.kind !== "ready") return;
+    if (
+      this.#descriptor.detectors.includes("alternate-screen") &&
+      containsEscapeSequence(data, ALTERNATE_SCREEN_PATTERN)
+    ) {
       this.suspend("alternate-screen");
       return;
     }
-    if (containsEscapeSequence(data, REDRAW_PATTERN)) {
+    if (
+      (this.#descriptor.detectors.includes("redraw") ||
+        this.#descriptor.detectors.includes("cursor-motion")) &&
+      containsEscapeSequence(data, REDRAW_PATTERN)
+    ) {
       this.suspend("redraw");
       return;
     }
@@ -172,12 +226,14 @@ export class PtyProfile {
     this.#draft = "";
     this.#decoder = new TextDecoder("utf-8", { fatal: true });
     this.#seenHandshakeMarkers.clear();
+    this.#outputBuffer = "";
   }
 
   #restartHandshake(): void {
     this.#draft = "";
     this.#decoder = new TextDecoder("utf-8", { fatal: true });
     this.#seenHandshakeMarkers.clear();
+    this.#outputBuffer = "";
     this.#state = { kind: "untrusted", reason: "handshake-required" };
   }
 
@@ -259,6 +315,22 @@ function containsEscapeSequence(value: string, pattern: RegExp): boolean {
     .split(ESCAPE)
     .slice(1)
     .some((sequence) => pattern.test(sequence));
+}
+
+function incompletePromptMarkerIndex(value: string): number | undefined {
+  const searchStart = Math.max(0, value.length - 64);
+  for (let index = searchStart; index < value.length; index += 1) {
+    const tail = value.slice(index);
+    if (
+      PROMPT_MARKER_PREFIX.startsWith(tail) ||
+      (tail.startsWith(PROMPT_MARKER_PREFIX) &&
+        !tail.includes("\u0007") &&
+        !tail.includes(ESCAPE, 1))
+    ) {
+      return index;
+    }
+  }
+  return undefined;
 }
 
 function isSafePrintable(character: string): boolean {
