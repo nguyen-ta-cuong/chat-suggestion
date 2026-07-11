@@ -19,6 +19,7 @@ import type {
 
 const FILE_READ_LIMIT = 65_536;
 const PROJECT_LIST_LIMIT = 2 * 1_024 * 1_024;
+const MAX_HOST_ITEMS_PER_SOURCE = 32;
 
 export function createCollectors(
   input: ContextAssemblyInput,
@@ -26,7 +27,8 @@ export function createCollectors(
 ): readonly ContextCollector[] {
   const collectors: ContextCollector[] = [];
   if (input.attachments !== undefined) {
-    for (const [index, attachment] of [...input.attachments]
+    for (const [index, attachment] of input.attachments
+      .slice(-MAX_HOST_ITEMS_PER_SOURCE)
       .reverse()
       .entries()) {
       collectors.push(createAttachmentCollector(attachment, index, policy));
@@ -59,7 +61,7 @@ function createAttachmentCollector(
     ) {
       return null;
     }
-    return `attachment ${safeLabel(attachment.name)}\n${attachment.content}`;
+    return `attachment ${safeLabel(attachment.name)}\n${truncateUtf8(attachment.content, FILE_READ_LIMIT)}`;
   });
 }
 
@@ -75,6 +77,7 @@ function createPlanCollectors(
     .filter(
       (path) => allowed.has(path) || allowed.has(path.split("/").at(-1) ?? ""),
     )
+    .slice(-MAX_HOST_ITEMS_PER_SOURCE)
     .reverse();
   const candidates = [
     ...explicitCandidates,
@@ -91,20 +94,28 @@ function createReferenceCollectors(
   input: ContextAssemblyInput,
   policy: ContextPolicy,
 ): readonly ContextCollector[] {
-  return [...(input.referencedFiles ?? [])]
-    .reverse()
-    .map((path, index) =>
-      fileCollector(`reference:${index}`, "project", path, policy),
-    );
+  return (
+    input.referencedFiles
+      ?.slice(-MAX_HOST_ITEMS_PER_SOURCE)
+      .reverse()
+      .map((path, index) =>
+        fileCollector(`reference:${index}`, "project", path, policy),
+      ) ?? []
+  );
 }
 
 function createSnippetCollectors(
   input: ContextAssemblyInput,
   policy: ContextPolicy,
 ): readonly ContextCollector[] {
-  return [...(input.selectedSnippets ?? [])]
-    .reverse()
-    .map((snippet, index) => createSnippetCollector(snippet, index, policy));
+  return (
+    input.selectedSnippets
+      ?.slice(-MAX_HOST_ITEMS_PER_SOURCE)
+      .reverse()
+      .map((snippet, index) =>
+        createSnippetCollector(snippet, index, policy),
+      ) ?? []
+  );
 }
 
 function createSnippetCollector(
@@ -124,15 +135,20 @@ function createSnippetCollector(
     if (safePath === null) {
       return null;
     }
-    return `selected ${safePath.relativePath} (${safeLabel(snippet.provenance)})\n${snippet.content}`;
+    return `selected ${safePath.relativePath} (${safeLabel(snippet.provenance)})\n${truncateUtf8(snippet.content, FILE_READ_LIMIT)}`;
   });
 }
 
 function createChatCollector(input: ContextAssemblyInput): ContextCollector {
   return textCollector("recent-chat", "recent-chat", () => {
-    const newestFirst = [...(input.recentChat ?? [])].reverse();
+    const newestFirst = (input.recentChat ?? [])
+      .slice(-MAX_HOST_ITEMS_PER_SOURCE)
+      .reverse();
     return newestFirst
-      .map((message) => `${safeLabel(message.role)}: ${message.content}`)
+      .map(
+        (message) =>
+          `${safeLabel(message.role)}: ${truncateUtf8(message.content, FILE_READ_LIMIT)}`,
+      )
       .join("\n");
   });
 }
@@ -313,7 +329,11 @@ export function collectorCacheKey(
   input: ContextAssemblyInput,
   policy: ContextPolicy,
 ): string | null {
-  if (collector.kind === "git") {
+  if (
+    collector.kind !== "project" ||
+    collector.sourceId.startsWith("snippet:") ||
+    collector.sourceId.startsWith("reference:")
+  ) {
     return null;
   }
   const digest = createHash("sha256")
@@ -322,11 +342,7 @@ export function collectorCacheKey(
         sourceId: collector.sourceId,
         repositoryRoot: policy.repositoryRoot,
         trustedProject: input.trustedProject,
-        recentChat: input.recentChat,
-        attachments: input.attachments,
-        planFiles: input.planFiles,
-        referencedFiles: input.referencedFiles,
-        selectedSnippets: input.selectedSnippets,
+        denyPatterns: policy.denyPatterns,
       }),
       "utf8",
     )
