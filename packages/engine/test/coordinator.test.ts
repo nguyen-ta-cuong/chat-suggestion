@@ -57,7 +57,9 @@ describe("SuggestionCoordinator", () => {
 
     harness.coordinator.update(createInput(2, "second draft"));
     expect(harness.signals[0]?.aborted).toBe(true);
-    delayed.resolve(candidateFor(harness.requests[0]!, " ignored late"));
+    delayed.resolve(
+      candidateFor(requiredAt(harness.requests, 0), " ignored late"),
+    );
     await flushPromises();
 
     expect(harness.surface.shown).toHaveLength(0);
@@ -81,7 +83,7 @@ describe("SuggestionCoordinator", () => {
     };
     const coordinator = new SuggestionCoordinator({
       provider,
-      context: async () => EMPTY_CONTEXT,
+      context: () => Promise.resolve(EMPTY_CONTEXT),
       surface,
       scheduler,
       requestId: (() => {
@@ -97,9 +99,9 @@ describe("SuggestionCoordinator", () => {
     scheduler.advanceBy(200);
     await flushPromises();
 
-    second.resolve(candidateFor(requests[1]!, " newer result"));
+    second.resolve(candidateFor(requiredAt(requests, 1), " newer result"));
     await flushPromises();
-    first.resolve(candidateFor(requests[0]!, " older result"));
+    first.resolve(candidateFor(requiredAt(requests, 0), " older result"));
     await flushPromises();
 
     expect(surface.shown.map((candidate) => candidate.edit.text)).toEqual([
@@ -135,7 +137,7 @@ describe("SuggestionCoordinator", () => {
     await flushPromises();
 
     harness.coordinator.update(changeInput(original));
-    delayed.resolve(candidateFor(harness.requests[0]!, " stale"));
+    delayed.resolve(candidateFor(requiredAt(harness.requests, 0), " stale"));
     await flushPromises();
 
     expect(harness.surface.shown).toHaveLength(0);
@@ -259,21 +261,21 @@ describe("SuggestionCoordinator", () => {
     const scheduler = new FakeScheduler();
     const surface = new FakeSurface();
     const provider: SuggestionProvider = {
-      provide: async (request) => {
+      provide: (request) => {
         requests.push(request);
-        return {
+        return Promise.resolve({
           ...candidateFor(request, "\u001b]0;unsafe\u0007"),
           edit: {
             startByte: 0,
             endByte: request.snapshot.cursorByte,
             text: "bad",
           },
-        };
+        });
       },
     };
     const coordinator = new SuggestionCoordinator({
       provider,
-      context: async () => EMPTY_CONTEXT,
+      context: () => Promise.resolve(EMPTY_CONTEXT),
       surface,
       scheduler,
       requestId: () => "request-invalid",
@@ -335,7 +337,7 @@ describe("SuggestionCoordinator", () => {
       durations.push(performance.now() - startedAt);
     }
     durations.sort((left, right) => left - right);
-    const p95 = durations[Math.floor(durations.length * 0.95)]!;
+    const p95 = durations[Math.floor(durations.length * 0.95)] ?? Infinity;
 
     expect(p95).toBeLessThan(5);
     expect(harness.scheduler.pendingCount()).toBe(1);
@@ -522,4 +524,11 @@ function deferred<T>(): {
 
 async function flushPromises(): Promise<void> {
   for (let index = 0; index < 5; index += 1) await Promise.resolve();
+}
+
+function requiredAt<T>(values: readonly T[], index: number): T {
+  const value = values[index];
+  if (value === undefined)
+    throw new Error(`missing test value at index ${index}`);
+  return value;
 }

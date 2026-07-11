@@ -78,7 +78,8 @@ describe("Claude capability probing", () => {
     const report = await probeClaude({
       executablePath: executable,
       nativeHandshake: {
-        negotiate: async () => nativeEvidence({ styledDecoration: false }),
+        negotiate: () =>
+          Promise.resolve(nativeEvidence({ styledDecoration: false })),
       },
     });
     expect(report.status).toBe("present-unsupported");
@@ -90,7 +91,7 @@ describe("Claude capability probing", () => {
     const executable = await fakeClaude("claude 1.2.3", "public editor API");
     const report = await probeClaude({
       executablePath: executable,
-      nativeHandshake: { negotiate: async () => nativeEvidence() },
+      nativeHandshake: { negotiate: () => Promise.resolve(nativeEvidence()) },
     });
     expect(report.status).toBe("native-handshake-supported");
     expect(report.capabilities).toMatchObject({

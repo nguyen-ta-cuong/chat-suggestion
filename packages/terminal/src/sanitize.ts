@@ -13,6 +13,7 @@ export interface SanitizeLimits {
 }
 
 const ESCAPE_SEQUENCE =
+  // eslint-disable-next-line no-control-regex -- terminal escape parsing intentionally matches control bytes
   /\u001b(?:\[[0-?]*[ -/]*[@-~]|\][^\u0007\u001b]*(?:\u0007|\u001b\\|$)|P[^\u001b]*(?:\u001b\\|$)|[@-_]?)/gu;
 
 export function sanitizeTerminalText(
@@ -32,7 +33,7 @@ export function sanitizeTerminalText(
     if (filtered.length === 0) continue;
     const addedLines = countNewlines(filtered);
     if (lines + addedLines > maxLines) break;
-    const nextCharacters = characters + [...filtered].length;
+    const nextCharacters = characters + Array.from(filtered).length;
     if (nextCharacters > maxCharacters) break;
     if (Buffer.byteLength(output + filtered, "utf8") > maxBytes) break;
     output += filtered;
@@ -59,5 +60,5 @@ function filterControls(value: string): string {
 }
 
 function countNewlines(value: string): number {
-  return [...value].filter((character) => character === "\n").length;
+  return Array.from(value).filter((character) => character === "\n").length;
 }

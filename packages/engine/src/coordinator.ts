@@ -199,10 +199,9 @@ export class SuggestionCoordinator {
       timeout: undefined,
     };
     this.#active = active;
-    active.timeout = this.#scheduler.setTimeout(
-      () => this.#timeOut(active),
-      this.#configuration.requestTimeoutMs,
-    );
+    active.timeout = this.#scheduler.setTimeout(() => {
+      this.#timeOut(active);
+    }, this.#configuration.requestTimeoutMs);
     this.#state = stateFor("collecting", active.snapshot, active.requestId);
     this.#record({ name: "collection-started", count: 1 });
 
@@ -397,8 +396,9 @@ export class SuggestionCoordinator {
 const systemScheduler: SuggestionScheduler = {
   now: () => performance.now(),
   setTimeout: (callback, delayMs) => globalThis.setTimeout(callback, delayMs),
-  clearTimeout: (handle) =>
-    globalThis.clearTimeout(handle as ReturnType<typeof setTimeout>),
+  clearTimeout: (handle) => {
+    globalThis.clearTimeout(handle as ReturnType<typeof setTimeout>);
+  },
 };
 
 function validateConfiguration(
