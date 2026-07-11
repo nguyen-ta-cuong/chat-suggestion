@@ -47,7 +47,7 @@ export class PtyRunner {
         options.args ?? [],
         {
           cwd: options.cwd,
-          env: options.env ?? {},
+          env: options.env ?? inheritedEnvironment(),
           columns: options.terminal.columns,
           rows: options.terminal.rows,
         },
@@ -59,13 +59,11 @@ export class PtyRunner {
         resolveCompletion = resolve;
         rejectCompletion = reject;
       });
+      let forcedCleanup: Promise<void> | undefined;
       const fail = (error: unknown): void => {
+        if (forcedCleanup !== undefined) return;
         restore();
-        try {
-          child.kill("SIGTERM");
-        } catch {
-          // Cleanup continues through finally even when the child is already gone.
-        }
+        forcedCleanup = terminateChild(child);
         rejectCompletion(error);
       };
       disposables.push(
@@ -121,9 +119,13 @@ export class PtyRunner {
           );
         }
       }
-      const event = await completion;
-      options.hooks?.onExit?.(event);
-      return event;
+      try {
+        const event = await completion;
+        options.hooks?.onExit?.(event);
+        return event;
+      } finally {
+        await forcedCleanup;
+      }
     } finally {
       for (const disposable of disposables.splice(0).reverse()) {
         disposable.dispose();
@@ -147,6 +149,52 @@ export class PtyRunner {
       throw new RangeError("terminal dimensions must be positive");
     }
   }
+}
+
+async function terminateChild(
+  child: {
+    kill(signal: ForwardedSignal | "SIGKILL"): void;
+    onExit(listener: (event: PtyExitEvent) => void): Disposable;
+  },
+  graceMs = 100,
+): Promise<void> {
+  await new Promise<void>((resolve) => {
+    let settled = false;
+    const timers: {
+      escalation?: ReturnType<typeof setTimeout>;
+      fallback?: ReturnType<typeof setTimeout>;
+    } = {};
+    const finish = (): void => {
+      if (settled) return;
+      settled = true;
+      if (timers.escalation !== undefined) clearTimeout(timers.escalation);
+      if (timers.fallback !== undefined) clearTimeout(timers.fallback);
+      exitListener.dispose();
+      resolve();
+    };
+    const exitListener = child.onExit(finish);
+    try {
+      child.kill("SIGTERM");
+    } catch {
+      finish();
+      return;
+    }
+    timers.escalation = setTimeout(() => {
+      try {
+        child.kill("SIGKILL");
+      } finally {
+        timers.fallback = setTimeout(finish, graceMs);
+      }
+    }, graceMs);
+  });
+}
+
+function inheritedEnvironment(): Readonly<Record<string, string>> {
+  return Object.fromEntries(
+    Object.entries(process.env).filter(
+      (entry): entry is [string, string] => entry[1] !== undefined,
+    ),
+  );
 }
 
 const FORWARDED_SIGNALS: readonly ForwardedSignal[] = [

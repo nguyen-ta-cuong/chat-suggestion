@@ -5,6 +5,7 @@ import type {
   PtyBackend,
   PtyChild,
   PtyExitEvent,
+  PtySpawnOptions,
   SignalSource,
   TerminalEndpoint,
 } from "../../src/index.js";
@@ -75,11 +76,17 @@ export class SyntheticPtyBackend implements PtyBackend {
   readonly supportedPlatforms = [process.platform];
   readonly child = new SyntheticPtyChild();
   spawnError?: Error;
+  lastSpawnOptions?: PtySpawnOptions;
 
-  spawn(): PtyChild {
+  spawn(
+    _executable: string,
+    _args: readonly string[],
+    options: PtySpawnOptions,
+  ): PtyChild {
     if (this.spawnError !== undefined) {
       throw this.spawnError;
     }
+    this.lastSpawnOptions = options;
     return this.child;
   }
 }

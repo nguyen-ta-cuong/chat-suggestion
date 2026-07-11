@@ -91,6 +91,25 @@ describe("PtyRunner", () => {
     expect(terminal.rawModeChanges).toEqual([true, false]);
   });
 
+  it("inherits the parent environment when no override is supplied", async () => {
+    const { backend, options } = setup();
+    const withoutEnvironment = {
+      backend: options.backend,
+      terminal: options.terminal,
+      controller: options.controller,
+      executable: options.executable,
+      args: options.args,
+      cwd: options.cwd,
+      allowlistedExecutables: options.allowlistedExecutables,
+      signals: options.signals,
+    };
+    const run = new PtyRunner().run(withoutEnvironment);
+    backend.child.emitExit({ exitCode: 0 });
+    await run;
+
+    expect(backend.lastSpawnOptions?.env.PATH).toBe(process.env.PATH);
+  });
+
   it("injects only accepted suffix bytes and never submit", async () => {
     const { backend, controller, options, terminal } = setup();
     const run = new PtyRunner().run(options);
@@ -151,6 +170,7 @@ describe("PtyRunner", () => {
 
     await expect(run).rejects.toThrow("synthetic wrapper fault");
     expect(backend.child.signals).toContain("SIGTERM");
+    expect(backend.child.signals).toContain("SIGKILL");
     expect(terminal.isRaw).toBe(false);
     expect(terminal.listenerCount).toBe(0);
     expect(backend.child.listenerCount).toBe(0);
