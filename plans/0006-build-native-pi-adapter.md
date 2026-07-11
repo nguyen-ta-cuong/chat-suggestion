@@ -8,6 +8,9 @@ Deliver the first native user experience. In Pi TUI mode, typing at the logical 
 
 ## Progress
 
+- [x] (2026-07-11T13:20:09Z) Fixed the offline smoke bridge so any ordinary
+  three-character draft proves native ghost rendering; added direct bridge
+  coverage for short and aborted input.
 - [ ] Read the installed Pi extension, TUI, keybinding, package docs and linked custom-editor examples completely.
 - [ ] Build a public-API-only rendering spike and record feasibility evidence.
 - [ ] Implement editor observation, lifecycle, engine bridge, key arbitration, and fallback.
@@ -18,6 +21,12 @@ Deliver the first native user experience. In Pi TUI mode, typing at the logical 
 
 - Observation: Pi has a custom editor API but no first-class ghost decoration API.
   Evidence: `ctx.ui.setEditorComponent`, `CustomEditor`, and `render()` are documented; inline suggestion decoration is not.
+- Observation: The smoke extension reported `eol-only` after a successful editor
+  handshake, but silently returned no candidate for every draft except one fixed
+  phrase.
+  Evidence: `offline-extension.ts` gated its bridge with
+  `snapshot.text.endsWith("fix auth")`; a `tes` draft therefore rendered no
+  ghost despite the active capability status.
 
 ## Decision Log
 
@@ -27,10 +36,24 @@ Deliver the first native user experience. In Pi TUI mode, typing at the logical 
 - Decision: Consume injected `tui.input.tab` only for a visible current candidate and delegate every other input to `super.handleInput(data)`.
   Rationale: This preserves user keybindings, native autocomplete, and application behavior.
   Date: 2026-07-11
+- Decision: Make the offline smoke bridge produce its fixed safe suffix for any
+  three-or-more-character non-whitespace draft.
+  Rationale: The smoke workflow should demonstrate the native editor path without
+  requiring a hidden magic phrase or implying that it is a real provider.
+  Date: 2026-07-11
 
 ## Outcomes & Retrospective
 
-Not started. Successful completion requires the native end-of-input inline path to pass. If only adjacent or disabled mode is feasible through public APIs, mark this plan blocked, preserve the evidence, and require an explicit PRD/release-scope decision in plan 0010.
+Post-implementation maintenance on 2026-07-11 corrected the offline smoke
+workflow: a normal three-character draft now proves the native end-of-input
+ghost path rather than requiring an undisclosed exact phrase. Adapter tests,
+type checking, build, documentation checks, and the full workspace validation
+suite passed after the change. This remains an offline rendering and key-handling
+probe; a configured remote completion provider is a separate integration
+concern. Successful completion requires the native end-of-input inline path to
+pass. If only adjacent or disabled mode is feasible through public APIs, mark
+this plan blocked, preserve the evidence, and require an explicit PRD/release-
+scope decision in plan 0010.
 
 ## Context and Orientation
 

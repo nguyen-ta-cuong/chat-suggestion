@@ -17,7 +17,7 @@ Build the workspace protocol package first, then run this disposable extension f
     npm run build --workspace @chat-suggestion/protocol
     PI_CODING_AGENT_DIR=/tmp/chat-suggestion-pi-smoke PI_OFFLINE=1 pi --offline --no-session --no-extensions --no-skills --no-prompt-templates --no-context-files --no-tools -e "$PWD/adapters/pi/smoke/offline-extension.ts"
 
-Type `fix auth` without submitting. After 150 ms, the editor shows ` tests and add a regression test` as dim end-of-line text. Tab inserts it once. Escape dismisses it. The smoke bridge is deterministic, reads no session history or files, has no network path, and cannot start a paid model turn unless the user explicitly submits a prompt after the test.
+Type any three non-whitespace characters, such as `fix auth`, without submitting. After 150 ms, the editor shows ` tests and add a regression test` as dim end-of-line text. Tab inserts it once. Escape dismisses it. The smoke bridge is deterministic, reads no session history or files, has no network path, and cannot start a paid model turn unless the user explicitly submits a prompt after the test. Pi's separate “No models available” warning does not affect this offline check.
 
 Exit with Ctrl-D on an empty editor. The isolated configuration is confined to `/tmp/chat-suggestion-pi-smoke`; remove that directory after testing if desired.
 
