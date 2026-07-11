@@ -13,12 +13,13 @@
     "fixtures/*"
   ],
   "scripts": {
+    "chat-suggest": "node apps/chat-suggest/dist/cli.js",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "lint": "eslint .",
-    "typecheck": "npm run typecheck --workspaces --if-present",
-    "build": "npm run build --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present"
+    "lint": "npm run build && eslint .",
+    "typecheck": "npm run build && npm run typecheck --workspaces --if-present && tsc -p tests/e2e/tsconfig.json --noEmit",
+    "build": "npm run build --workspace @chat-suggestion/protocol && npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present && vitest run tests/e2e"
   },
   "devDependencies": {
     "@eslint/js": "^9.31.0",

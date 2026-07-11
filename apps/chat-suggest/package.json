@@ -12,8 +12,19 @@
   "files": [
     "dist"
   ],
+  "bin": {
+    "chat-suggest": "dist/cli.js"
+  },
   "dependencies": {
-    "@chat-suggestion/protocol": "0.1.0"
+    "@chat-suggestion/adapter-claude": "0.1.0",
+    "@chat-suggestion/adapter-codex": "0.1.0",
+    "@chat-suggestion/adapter-pi": "0.1.0",
+    "@chat-suggestion/adapter-pty": "0.1.0",
+    "@chat-suggestion/context": "0.1.0",
+    "@chat-suggestion/engine": "0.1.0",
+    "@chat-suggestion/protocol": "0.1.0",
+    "@chat-suggestion/provider": "0.1.0",
+    "@chat-suggestion/terminal": "0.1.0"
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
