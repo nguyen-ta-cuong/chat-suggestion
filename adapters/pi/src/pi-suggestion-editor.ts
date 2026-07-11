@@ -178,7 +178,20 @@ export class PiSuggestionEditor extends CustomEditor {
     this.lastRenderWidth = width;
     const lines = super.render(width);
 
-    if (!this.candidate) return lines;
+    const candidate = this.candidate;
+    const candidateSnapshot = this.candidateSnapshot;
+    if (!candidate) return lines;
+    if (
+      !candidateSnapshot ||
+      !this.isCandidateCurrent(
+        candidate,
+        candidateSnapshot,
+        candidate.requestId,
+      )
+    ) {
+      this.clear("stale");
+      return lines;
+    }
     if (previousWidth !== undefined && previousWidth !== width) {
       this.clear("resized");
       return lines;
@@ -202,7 +215,7 @@ export class PiSuggestionEditor extends CustomEditor {
     if (line === undefined) return lines;
     const decorated = decorateEolGhostLine({
       line,
-      suffix: this.candidate.edit.text,
+      suffix: candidate.edit.text,
       width,
       styleDim: this.styleDim,
     });

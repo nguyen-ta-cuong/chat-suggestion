@@ -116,6 +116,7 @@ describe("PiSuggestionEditor key arbitration and freshness", () => {
     await vi.runAllTimersAsync();
 
     editor.setText("different");
+    expect(editor.render(30).join("\n")).not.toContain("tests");
     editor.handleInput("\t");
 
     expect(editor.getText()).toBe("different");
