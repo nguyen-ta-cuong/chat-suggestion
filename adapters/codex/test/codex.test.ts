@@ -122,6 +122,15 @@ describe("probeCodexCapabilities", () => {
     expect(report.selection).toBe("custom-frontend");
   });
 
+  it("rejects an oversized generated initialize schema before parsing", async () => {
+    const executable = await makeFakeCodex({ oversizedSchema: true });
+    const report = await probe(executable);
+
+    expect(report.evidence.initializeSchemaCompatible).toBe(false);
+    expect(report.customFrontend.available).toBe(false);
+    expect(report.selection).toBe("unsupported");
+  });
+
   it("rejects a custom-frontend handshake when the expected version differs", async () => {
     const executable = await makeFakeCodex({ version: "0.144.0-alpha.4" });
     const report = await probeCodexCapabilities({
@@ -279,6 +288,7 @@ interface FakeCodexOptions {
   readonly hangOnVersion?: boolean;
   readonly noisyVersion?: boolean;
   readonly appServerExitsEarly?: boolean;
+  readonly oversizedSchema?: boolean;
 }
 
 async function makeFakeCodex(options: FakeCodexOptions): Promise<string> {
@@ -302,7 +312,7 @@ if (args[0] === "--version") {
 } else if (args[0] === "app-server" && args[1] === "generate-json-schema") {
   const out = args[args.indexOf("--out") + 1];
   fs.mkdirSync(out + "/v1", { recursive: true });
-  fs.writeFileSync(out + "/v1/InitializeParams.json", JSON.stringify({ title: "InitializeParams", required: ["clientInfo"] }));
+  fs.writeFileSync(out + "/v1/InitializeParams.json", ${options.oversizedSchema === true ? '"x".repeat(64 * 1024)' : 'JSON.stringify({ title: "InitializeParams", required: ["clientInfo"] })'});
   fs.writeFileSync(out + "/ClientRequest.json", JSON.stringify({ oneOf: [{ properties: { method: { enum: ["initialize"] } } }] }));
 } else if (args[0] === "app-server") {
   ${options.appServerExitsEarly === true ? "process.exit(1);" : ""}

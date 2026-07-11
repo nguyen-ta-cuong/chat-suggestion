@@ -1,4 +1,4 @@
-import { readFile, rm } from "node:fs/promises";
+import { open, rm } from "node:fs/promises";
 import { join } from "node:path";
 
 import { runBoundedProcess, type BoundedProcessOptions } from "./process.js";
@@ -29,11 +29,17 @@ export async function probeInitializeSchema(
 }
 
 async function readBoundedJson(file: string): Promise<unknown> {
-  const bytes = await readFile(file);
-  if (bytes.length > MAX_SCHEMA_BYTES) {
-    throw new RangeError("Initialize schema exceeds the read limit.");
+  const handle = await open(file, "r");
+  try {
+    const bytes = Buffer.alloc(MAX_SCHEMA_BYTES + 1);
+    const { bytesRead } = await handle.read(bytes, 0, bytes.length, 0);
+    if (bytesRead > MAX_SCHEMA_BYTES) {
+      throw new RangeError("Initialize schema exceeds the read limit.");
+    }
+    return JSON.parse(bytes.subarray(0, bytesRead).toString("utf8")) as unknown;
+  } finally {
+    await handle.close();
   }
-  return JSON.parse(bytes.toString("utf8")) as unknown;
 }
 
 function isCompatibleInitializeSchema(input: unknown): boolean {
