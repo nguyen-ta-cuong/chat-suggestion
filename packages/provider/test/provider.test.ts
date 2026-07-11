@@ -291,7 +291,10 @@ describe("OpenAICompatibleSuggestionProvider", () => {
   });
 
   it("times out a hanging request", async () => {
-    fixture.handle(() => undefined);
+    fixture.handle((_request, response) => {
+      response.writeHead(200, { "content-type": "application/json" });
+      response.flushHeaders();
+    });
     const provider = createProvider(fixture.endpoint, { timeoutMs: 20 });
     await expectProviderCode(provider, "timeout");
   });
@@ -299,6 +302,8 @@ describe("OpenAICompatibleSuggestionProvider", () => {
   it("aborts fetch and closes the loopback request", async () => {
     let requestClosed = false;
     fixture.handle((_request, response) => {
+      response.writeHead(200, { "content-type": "application/json" });
+      response.flushHeaders();
       response.on("close", () => {
         requestClosed = true;
       });

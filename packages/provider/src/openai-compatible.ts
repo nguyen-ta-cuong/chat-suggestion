@@ -48,7 +48,7 @@ interface ResponseBodyReader {
     | { readonly done: true; readonly value?: undefined }
     | { readonly done: false; readonly value: Uint8Array }
   >;
-  cancel(): Promise<void>;
+  cancel(reason?: unknown): Promise<void>;
   releaseLock(): void;
 }
 
@@ -89,8 +89,7 @@ export class OpenAICompatibleSuggestionProvider implements SuggestionProvider {
       this.#cooldown.assertAvailable();
       const body = this.#createBody(request);
       requestBytes = Buffer.byteLength(body, "utf8");
-      const response = await this.#sendWithOneRetry(body, signal);
-      const responseText = await readBoundedResponse(response);
+      const responseText = await this.#sendWithOneRetry(body, signal);
       responseBytes = Buffer.byteLength(responseText, "utf8");
       const output = extractResponseOutput(responseText);
       if (output === "") {
@@ -155,20 +154,40 @@ export class OpenAICompatibleSuggestionProvider implements SuggestionProvider {
 
   async #sendWithOneRetry(
     body: string,
-    signal: AbortSignal,
-  ): Promise<Response> {
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      this.#bucket.take();
-      const response = await this.#send(body, signal);
-      if (response.ok) return response;
-      if (attempt === 0 && RETRYABLE_STATUS.has(response.status)) {
+    parentSignal: AbortSignal,
+  ): Promise<string> {
+    const request = new AbortController();
+    const timer = setTimeout(() => {
+      request.abort(new ProviderError("timeout", "remote provider timed out"));
+    }, this.#config.timeoutMs);
+    const abort = (): void => {
+      request.abort(parentSignal.reason);
+    };
+    parentSignal.addEventListener("abort", abort, { once: true });
+    try {
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        this.#bucket.take();
+        const response = await this.#send(body, request.signal);
+        if (response.ok) {
+          return await readBoundedResponse(response, request.signal);
+        }
+        if (attempt === 0 && RETRYABLE_STATUS.has(response.status)) {
+          await response.body?.cancel();
+          continue;
+        }
         await response.body?.cancel();
-        continue;
+        throw httpError(response.status);
       }
-      await response.body?.cancel();
-      throw httpError(response.status);
+      throw new ProviderError("network", "remote provider retry failed");
+    } catch (error) {
+      if (request.signal.aborted && isProviderError(request.signal.reason)) {
+        throw request.signal.reason;
+      }
+      throw error;
+    } finally {
+      clearTimeout(timer);
+      parentSignal.removeEventListener("abort", abort);
     }
-    throw new ProviderError("network", "remote provider retry failed");
   }
 
   async #send(body: string, signal: AbortSignal): Promise<Response> {
@@ -179,28 +198,15 @@ export class OpenAICompatibleSuggestionProvider implements SuggestionProvider {
         `configured API key environment variable is not set`,
       );
     }
-    const timeout = new AbortController();
-    const timer = setTimeout(() => {
-      timeout.abort(new ProviderError("timeout", "remote provider timed out"));
-    }, this.#config.timeoutMs);
-    const abort = (): void => {
-      timeout.abort(signal.reason);
-    };
-    signal.addEventListener("abort", abort, { once: true });
-    try {
-      return await this.#fetch(this.#config.endpoint, {
-        method: "POST",
-        headers: {
-          authorization: `Bearer ${apiKey}`,
-          "content-type": "application/json",
-        },
-        body,
-        signal: timeout.signal,
-      });
-    } finally {
-      clearTimeout(timer);
-      signal.removeEventListener("abort", abort);
-    }
+    return await this.#fetch(this.#config.endpoint, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${apiKey}`,
+        "content-type": "application/json",
+      },
+      body,
+      signal,
+    });
   }
 
   #emit(
@@ -273,7 +279,10 @@ function extractResponseOutput(responseText: string): string {
   return choice.message.content;
 }
 
-async function readBoundedResponse(response: Response): Promise<string> {
+async function readBoundedResponse(
+  response: Response,
+  signal: AbortSignal,
+): Promise<string> {
   const declaredLength = Number(response.headers.get("content-length"));
   if (Number.isFinite(declaredLength) && declaredLength > MAX_RESPONSE_BYTES) {
     await response.body?.cancel();
@@ -286,7 +295,12 @@ async function readBoundedResponse(response: Response): Promise<string> {
   const reader = response.body.getReader() as ResponseBodyReader;
   const chunks: Uint8Array[] = [];
   let bytes = 0;
+  const abort = (): void => {
+    void reader.cancel(signal.reason).catch(() => undefined);
+  };
+  signal.addEventListener("abort", abort, { once: true });
   try {
+    signal.throwIfAborted();
     while (true) {
       const result = await reader.read();
       if (result.done) break;
@@ -301,6 +315,7 @@ async function readBoundedResponse(response: Response): Promise<string> {
       chunks.push(result.value);
     }
   } finally {
+    signal.removeEventListener("abort", abort);
     reader.releaseLock();
   }
   const combined = new Uint8Array(bytes);
