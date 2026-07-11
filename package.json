@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=20"
+    "node": ">=22.19.0"
   },
   "workspaces": [
     "packages/*",
@@ -13,12 +13,14 @@
     "fixtures/*"
   ],
   "scripts": {
+    "chat-suggest": "node apps/chat-suggest/dist/cli.js",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",
+    "pretypecheck": "npm run build",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "build": "npm run build --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present"
+    "build": "npm run build --workspace @chat-suggestion/protocol && npm run build --workspace @chat-suggestion/engine && npm run build --workspace @chat-suggestion/context && npm run build --workspace @chat-suggestion/provider && npm run build --workspace @chat-suggestion/terminal && npm run build --workspace @chat-suggestion/adapter-claude && npm run build --workspace @chat-suggestion/adapter-codex && npm run build --workspace @chat-suggestion/adapter-pi && npm run build --workspace @chat-suggestion/adapter-pty && npm run build --workspace @chat-suggestion/tui-fixture && npm run build --workspace @chat-suggestion/app",
+    "test": "npm run test --workspaces --if-present && vitest run tests/e2e"
   },
   "devDependencies": {
     "@eslint/js": "^9.31.0",
