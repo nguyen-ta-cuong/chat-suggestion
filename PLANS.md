@@ -15,8 +15,8 @@ Run the plans in these waves:
                   ├─ 0007 PTY adapter
                   ├─ 0008 Codex adapter
                   └─ 0009 Claude adapter
-    Wave 2: 0010 integration and release
-    Wave 3: 0011 verified user setup and usage guide
+Wave 2: 0010 integration and release
+Wave 3: 0011 verified user setup and usage guide ([canonical guide](docs/user-guide.md))
 
 Wave 1 plans intentionally own disjoint paths and depend only on the protocol and workspace created by plan 0001. Their package-level tests use protocol fixtures or local doubles; cross-package fixture conformance belongs to plan 0010. Do not run multiple plans in one package. Every implementer also owns its own living plan file and matching contract-request note. Plan 0010 is the only plan permitted to reconcile contract requests and change integration/root wiring after bootstrap, including conditional edits to protocol and affected consumers recorded in its Decision Log. Plan 0011 then owns the final `README.md` handoff and `docs/user-guide.md` plus its documentation tests/evidence; it must verify final commands and must not edit `docs/operations/**` or runtime code.
 

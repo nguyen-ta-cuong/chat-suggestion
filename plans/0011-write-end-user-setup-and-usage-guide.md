@@ -12,12 +12,12 @@ This is Wave 3 and depends on plan 0010. It owns `plans/0011-write-end-user-setu
 
 ## Progress
 
-- [ ] Record UTC start time and read completed plan outcomes, package READMEs, CLI help, and `docs/operations/**`.
-- [ ] Verify every publishable command and user-visible capability in a clean local environment.
-- [ ] Write the canonical fake-provider-first setup and usage guide.
-- [ ] Add an offline command manifest, documentation tests, and redacted evidence.
-- [ ] Update root navigation and documentation acceptance references.
-- [ ] Run documentation and full-project validation and update all living sections.
+- [x] (2026-07-11T12:55:17Z) Read Plan 0010's completed outcome, package READMEs, CLI/configuration source, Pi help, and every `docs/operations/**` document.
+- [x] (2026-07-11T12:55:17Z) Verified build, status, fake demo, trusted context preview, Pi install-path, host versions, and Pi local-package behavior without provider credentials.
+- [x] (2026-07-11T12:55:17Z) Wrote the canonical fake-provider-first setup and usage guide, including explicit remote, PTY, and unavailable-artifact warnings.
+- [x] (2026-07-11T12:55:17Z) Added an offline command manifest, documentation tests, and redacted evidence.
+- [x] (2026-07-11T13:09:00Z) Updated README, PRD, AGENTS, and PLANS navigation; recorded the Pi artifact contract request.
+- [x] (2026-07-11T13:09:00Z) Passed the documentation test, format check, lint, typecheck, and full workspace/e2e test suite.
 
 ## Surprises & Discoveries
 
@@ -25,6 +25,8 @@ This is Wave 3 and depends on plan 0010. It owns `plans/0011-write-end-user-setu
   Evidence: Plan 0010 says commands “resembling” `status`, `context preview`, `demo`, and `wrap`.
 - Observation: Codex and Claude remain runtime capability-gated, not promised native stock-TUI integrations.
   Evidence: `PRD.md` and plans 0008–0009 require a verified editor handshake.
+- Observation: Pi 0.80.6 accepts `pi install` for the adapter directory but cannot load the directory as an extension at startup.
+  Evidence: the isolated local-package experiment ended with `Failed to load extension` and `Cannot find module`; the created `.pi/settings.json` was removed.
 
 ## Decision Log
 
@@ -40,10 +42,28 @@ This is Wave 3 and depends on plan 0010. It owns `plans/0011-write-end-user-setu
 - Decision: PTY guidance is visibly experimental, opt-in, allowlist-restricted, and never evidence of semantic editor access.
   Rationale: A PTY sees terminal bytes, not a reliable logical prompt buffer.
   Date: 2026-07-11
+- Decision: Treat durable Pi installation as unavailable and publish only the disposable explicit-extension smoke path.
+  Rationale: The package has no loadable entry point that wires the required suggestion bridge; a Pi install command that succeeds initially but fails on startup is unsafe onboarding.
+  Date: 2026-07-11
+- Decision: Exclude the Node documentation test from the workspace's typed TypeScript ESLint configuration.
+  Rationale: The required `.mjs` test is not part of a TypeScript project and strict typed rules fail before its file-level disable directive can apply; it is still run directly by Node's test runner.
+  Date: 2026-07-11
 
 ## Outcomes & Retrospective
 
-Not started. At completion, summarize verified platforms and Node/npm/Pi versions, tested command forms, capability downgrades, remaining unverified hosts, and the result of a novice fresh-clone walkthrough.
+The canonical guide, command manifest, Node test, and redacted evidence are now
+complete. The local workflow was verified on macOS 15 arm64 with Node 24.16.0,
+npm 11.16.0, and Pi 0.80.6. The fake demo does not submit or use a remote
+provider; status, trusted preview, and the Pi package-path probe all exit 0.
+Pi's disposable explicit-extension smoke path remains manual and offline.
+
+The guide accurately reports that Pi native rendering requires the active TUI
+handshake, Codex and Claude stock TUIs are unsupported, and the PTY wrapper
+refuses before child launch because there is no exact profile. A Pi local package
+installation was not advertised because its startup failed; the exact artifact
+gap is recorded in `artifacts/contract-change-requests/0011.md`. This is a
+release blocker for durable Pi installation, not for the offline CLI and smoke
+documentation.
 
 ## Context and Orientation
 
@@ -115,3 +135,8 @@ The command manifest is documentation test data, not runtime configuration. Keep
 This plan consumes completed public behavior from `apps/chat-suggest`, the Pi package, capability adapters, and `docs/operations/**`. It introduces no runtime dependency. `docs/test/user-guide.test.mjs` uses Node standard modules and completed local CLI artifacts only.
 
 Revision note: Initial post-integration user-documentation plan created 2026-07-11 using GPT-5.6 Terra. It resolves the missing evidence-gated setup, usage, troubleshooting, and uninstall workstream.
+
+Revision note (2026-07-11T13:09:00Z): Published the verified guide and its
+offline command test, redacted evidence, and unavailable-Pi-artifact request.
+The documentation test executes only offline commands without provider
+credentials; Pi and PTY remain manual evidence-gated paths.

@@ -186,7 +186,7 @@ The MVP is accepted when all of the following are observable:
 6. Capability output does not claim native ghost text for Codex or Claude without a successful native handshake.
 7. Tests pass for multiline drafts, emoji, combining marks, CJK, paste, resize, and canceled requests.
 8. A fresh clone can run `npm install`, `npm run build`, `npm test`, and the documented Pi smoke test.
-9. The canonical user guide proves a fresh-clone fake-provider workflow, warns before remote transmission and PTY use, explains capability downgrades honestly, links verified troubleshooting, and documents uninstall steps that remove only product-owned artifacts.
+9. The [canonical user guide](docs/user-guide.md) proves a fresh-clone fake-provider workflow, warns before remote transmission and PTY use, explains capability downgrades honestly, links verified troubleshooting, and documents uninstall steps that remove only product-owned artifacts.
 
 ## 11. Delivery strategy
 

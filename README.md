@@ -2,13 +2,18 @@
 
 Cursor-style inline prompt suggestions for coding-agent chat editors.
 
-## Project status
+## Get started
 
-The product has been researched and decomposed for parallel implementation. Pi has a verified native custom-editor path. Codex CLI and Claude Code remain capability-gated because prompt-submit hooks do not provide per-keystroke editor rendering; unsupported hosts use only a conservative experimental PTY fallback.
+Start with the deterministic offline provider in the [user guide](docs/user-guide.md).
+Suggestions stay decoration until accepted with Tab; they never submit prompts or
+execute commands. Pi is the only native adapter exercised by this MVP, but its
+durable installation artifact is not yet available. Codex and Claude stock TUIs
+remain capability-gated, and PTY support is experimental and fails closed.
 
 ## Documentation
 
 - [Product requirements and architecture](PRD.md)
+- [Verified end-user guide](docs/user-guide.md)
 - [Agent implementation rules](AGENTS.md)
 - [Execution-plan graph](PLANS.md)
 - [Executable implementation plans](plans/)
