@@ -195,12 +195,16 @@ async function runBounded(
       if (bytes > maximumBytes) {
         forcedError = codeError("probe-output-limit");
         child.kill("SIGKILL");
-        reapFallback ??= setTimeout(() => finish(forcedError), timeoutMs);
+        reapFallback ??= setTimeout(() => {
+          finish(forcedError);
+        }, timeoutMs);
       } else chunks.push(chunk);
     };
     child.stdout.on("data", collect);
     child.stderr.on("data", collect);
-    child.once("error", (error) => finish(error));
+    child.once("error", (error) => {
+      finish(error);
+    });
     child.once("close", (code) => {
       finish(
         forcedError ??
@@ -210,7 +214,9 @@ async function runBounded(
     const timer = setTimeout(() => {
       forcedError = codeError("probe-timeout");
       child.kill("SIGKILL");
-      reapFallback ??= setTimeout(() => finish(forcedError), timeoutMs);
+      reapFallback ??= setTimeout(() => {
+        finish(forcedError);
+      }, timeoutMs);
     }, timeoutMs);
   });
 }

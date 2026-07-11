@@ -160,13 +160,15 @@ async function terminateChild(
 ): Promise<void> {
   await new Promise<void>((resolve) => {
     let settled = false;
-    let escalationTimer: ReturnType<typeof setTimeout> | undefined;
-    let fallbackTimer: ReturnType<typeof setTimeout> | undefined;
+    const timers: {
+      escalation?: ReturnType<typeof setTimeout>;
+      fallback?: ReturnType<typeof setTimeout>;
+    } = {};
     const finish = (): void => {
       if (settled) return;
       settled = true;
-      if (escalationTimer !== undefined) clearTimeout(escalationTimer);
-      if (fallbackTimer !== undefined) clearTimeout(fallbackTimer);
+      if (timers.escalation !== undefined) clearTimeout(timers.escalation);
+      if (timers.fallback !== undefined) clearTimeout(timers.fallback);
       exitListener.dispose();
       resolve();
     };
@@ -177,11 +179,11 @@ async function terminateChild(
       finish();
       return;
     }
-    escalationTimer = setTimeout(() => {
+    timers.escalation = setTimeout(() => {
       try {
         child.kill("SIGKILL");
       } finally {
-        fallbackTimer = setTimeout(finish, graceMs);
+        timers.fallback = setTimeout(finish, graceMs);
       }
     }, graceMs);
   });

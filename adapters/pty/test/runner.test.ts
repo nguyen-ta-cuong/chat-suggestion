@@ -93,7 +93,16 @@ describe("PtyRunner", () => {
 
   it("inherits the parent environment when no override is supplied", async () => {
     const { backend, options } = setup();
-    const { env: _env, ...withoutEnvironment } = options;
+    const withoutEnvironment = {
+      backend: options.backend,
+      terminal: options.terminal,
+      controller: options.controller,
+      executable: options.executable,
+      args: options.args,
+      cwd: options.cwd,
+      allowlistedExecutables: options.allowlistedExecutables,
+      signals: options.signals,
+    };
     const run = new PtyRunner().run(withoutEnvironment);
     backend.child.emitExit({ exitCode: 0 });
     await run;
