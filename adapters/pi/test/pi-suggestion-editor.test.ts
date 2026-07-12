@@ -12,6 +12,7 @@ import {
 } from "@earendil-works/pi-tui";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  DEFAULT_DEBOUNCE_MS,
   PiSuggestionEditor,
   type SuggestionBridge,
 } from "../src/pi-suggestion-editor.js";
@@ -94,6 +95,163 @@ describe("PiSuggestionEditor public rendering spike", () => {
 });
 
 describe("PiSuggestionEditor key arbitration and freshness", () => {
+  it("renders and accepts a current partial before generation completes", async () => {
+    vi.useFakeTimers();
+    let capturedSignal: AbortSignal | undefined;
+    let resolveFinal:
+      ((candidate: SuggestionCandidate | null) => void) | undefined;
+    const bridge = {
+      suggest(
+        snapshot: PromptSnapshot,
+        requestId: string,
+        signal: AbortSignal,
+        onUpdate?: (candidate: SuggestionCandidate) => void,
+      ) {
+        capturedSignal = signal;
+        onUpdate?.(candidateFor(snapshot, " tests", requestId));
+        return new Promise<SuggestionCandidate | null>((resolve) => {
+          resolveFinal = resolve;
+        });
+      },
+    };
+    const editor = createEditor(bridge);
+    editor.focused = true;
+
+    editor.handleInput("a");
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(editor.render(30).join("\n")).toContain("tests");
+    editor.handleInput("\t");
+    expect(editor.getText()).toBe("a tests");
+    expect(capturedSignal?.aborted).toBe(true);
+    resolveFinal?.(null);
+  });
+
+  it("clears a streamed partial when the final generation fails", async () => {
+    vi.useFakeTimers();
+    let resolveFinal:
+      ((candidate: SuggestionCandidate | null) => void) | undefined;
+    const bridge = {
+      suggest(
+        snapshot: PromptSnapshot,
+        requestId: string,
+        _signal: AbortSignal,
+        onUpdate?: (candidate: SuggestionCandidate) => void,
+      ) {
+        onUpdate?.(candidateFor(snapshot, " tests", requestId));
+        return new Promise<SuggestionCandidate | null>((resolve) => {
+          resolveFinal = resolve;
+        });
+      },
+    };
+    const editor = createEditor(bridge);
+    editor.focused = true;
+
+    editor.handleInput("a");
+    await vi.advanceTimersByTimeAsync(1);
+    expect(editor.render(30).join("\n")).toContain("tests");
+
+    resolveFinal?.(null);
+    await Promise.resolve();
+    expect(editor.render(30).join("\n")).not.toContain("tests");
+  });
+
+  it("rejects a partial update from an obsolete prompt revision", async () => {
+    vi.useFakeTimers();
+    const pending: {
+      snapshot: PromptSnapshot;
+      requestId: string;
+      onUpdate?: (candidate: SuggestionCandidate) => void;
+    }[] = [];
+    const bridge = {
+      suggest(
+        snapshot: PromptSnapshot,
+        requestId: string,
+        _signal: AbortSignal,
+        onUpdate?: (candidate: SuggestionCandidate) => void,
+      ) {
+        pending.push({
+          snapshot,
+          requestId,
+          ...(onUpdate === undefined ? {} : { onUpdate }),
+        });
+        return new Promise<SuggestionCandidate | null>(() => undefined);
+      },
+    };
+    const editor = createEditor(bridge);
+    editor.focused = true;
+
+    editor.handleInput("a");
+    await vi.advanceTimersByTimeAsync(1);
+    editor.handleInput("b");
+
+    const obsolete = pending[0];
+    if (!obsolete) throw new Error("obsolete request was not captured");
+    obsolete.onUpdate?.(
+      candidateFor(obsolete.snapshot, " stale", obsolete.requestId),
+    );
+
+    expect(editor.render(30).join("\n")).not.toContain("stale");
+  });
+
+  it("uses the minimum supported debounce for responsive typing", async () => {
+    vi.useFakeTimers();
+    const suggest = vi.fn(() => Promise.resolve(null));
+    const editor = createEditor({ suggest }, undefined, null);
+
+    editor.handleInput("a");
+    await vi.advanceTimersByTimeAsync(DEFAULT_DEBOUNCE_MS - 1);
+    expect(suggest).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(suggest).toHaveBeenCalledOnce();
+    expect(DEFAULT_DEBOUNCE_MS).toBe(100);
+  });
+
+  it("shrinks a matching visible ghost locally without another model call", async () => {
+    vi.useFakeTimers();
+    const suggest = vi.fn((snapshot: PromptSnapshot, requestId: string) =>
+      Promise.resolve(candidateFor(snapshot, " tests", requestId)),
+    );
+    const editor = createEditor({ suggest });
+    editor.focused = true;
+
+    editor.handleInput("a");
+    await vi.runAllTimersAsync();
+    expect(editor.render(30).join("\n")).toContain("tests");
+
+    editor.handleInput(" ");
+
+    expect(editor.getText()).toBe("a ");
+    expect(editor.render(30).join("\n")).toContain("ests");
+    expect(suggest).toHaveBeenCalledOnce();
+
+    editor.handleInput("\t");
+    expect(editor.getText()).toBe("a tests");
+  });
+
+  it("invalidates a visible ghost and debounces again on a mismatch", async () => {
+    vi.useFakeTimers();
+    const suggest = vi
+      .fn()
+      .mockImplementationOnce((snapshot: PromptSnapshot, requestId: string) =>
+        Promise.resolve(candidateFor(snapshot, " tests", requestId)),
+      )
+      .mockResolvedValue(null);
+    const editor = createEditor({ suggest });
+    editor.focused = true;
+
+    editor.handleInput("a");
+    await vi.runAllTimersAsync();
+    editor.handleInput("x");
+
+    expect(editor.render(30).join("\n")).not.toContain("ests");
+    expect(suggest).toHaveBeenCalledOnce();
+
+    await vi.runAllTimersAsync();
+    expect(suggest).toHaveBeenCalledTimes(2);
+  });
+
   it("accepts once with Tab and delegates later Tab presses", async () => {
     vi.useFakeTimers();
     const editor = createEditor(immediateBridge(" tests"));
@@ -243,6 +401,7 @@ describe("PiSuggestionEditor key arbitration and freshness", () => {
 function createEditor(
   bridge: SuggestionBridge,
   onClear?: (reason: string) => void,
+  debounceMs: number | null = 1,
 ): PiSuggestionEditor {
   return new PiSuggestionEditor(new FakeTui(), theme, {
     bridge,
@@ -251,7 +410,7 @@ function createEditor(
     sessionId: "session-1",
     keybindings: new FakeKeybindings(),
     styleDim: (text) => `\u001b[2m${text}\u001b[22m`,
-    debounceMs: 1,
+    ...(debounceMs === null ? {} : { debounceMs }),
     ...(onClear ? { onClear } : {}),
   });
 }

@@ -1,35 +1,40 @@
 import { utf8ByteLength, type PromptSnapshot } from "@chat-suggestion/protocol";
-import type { Message } from "@earendil-works/pi-ai/compat";
+import type {
+  AssistantMessage,
+  AssistantMessageEvent,
+  Message,
+} from "@earendil-works/pi-ai/compat";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { describe, expect, it, vi } from "vitest";
-import { createPiModelSuggestionBridge } from "../src/pi-model-bridge.js";
+import {
+  createPiModelSuggestionBridge,
+  type PiModelRequestOptions,
+} from "../src/pi-model-bridge.js";
 import { PI_NATIVE_CAPABILITIES } from "../src/pi-suggestion-editor.js";
 
 describe("Pi model suggestion bridge", () => {
   it("uses the selected model and returns only a safe insertion", async () => {
-    const complete = vi.fn(
+    const stream = vi.fn(
       (
         _model: unknown,
         request: { messages: readonly Message[]; systemPrompt: string },
-        options: { maxTokens: number },
+        options: PiModelRequestOptions & { temperature?: number },
       ) => {
         expect(request.messages[0]?.content).toBe("fix auth");
         expect(request.systemPrompt).toContain("only the short text");
         expect(options.maxTokens).toBe(64);
-        return Promise.resolve({
-          content: [
-            { type: "text" as const, text: " tests and add a regression test" },
-          ],
-          stopReason: "stop",
-          usage: { output: 7 },
-        });
+        expect(options.sessionId).toBe("chat-suggestion:session-1");
+        expect(options).not.toHaveProperty("temperature");
+        return streamFromMessage(
+          assistantMessage(" tests and add a regression test", 7),
+        );
       },
     );
     const context = createContext();
 
     const candidate = await createPiModelSuggestionBridge({
       getContext: () => context,
-      complete,
+      stream,
     }).suggest(
       createSnapshot("fix auth"),
       "pi-1-1",
@@ -46,15 +51,15 @@ describe("Pi model suggestion bridge", () => {
         text: " tests and add a regression test",
       },
     });
-    expect(complete).toHaveBeenCalledOnce();
+    expect(stream).toHaveBeenCalledOnce();
   });
 
   it("fails closed without a model or resolved credentials", async () => {
     const context = createContext();
-    const complete = vi.fn();
+    const stream = vi.fn(() => streamFromMessage(assistantMessage(" tests")));
     const bridge = createPiModelSuggestionBridge({
       getContext: () => ({ ...context, model: undefined }),
-      complete,
+      stream,
     });
     await expect(
       bridge.suggest(
@@ -68,24 +73,54 @@ describe("Pi model suggestion bridge", () => {
     await expect(
       createPiModelSuggestionBridge({
         getContext: () => unresolved,
-        complete,
+        stream,
       }).suggest(
         createSnapshot("fix"),
         "no-auth",
         new AbortController().signal,
       ),
     ).resolves.toBeNull();
-    expect(complete).not.toHaveBeenCalled();
+    expect(stream).not.toHaveBeenCalled();
+  });
+
+  it("publishes safe streamed text before the final message", async () => {
+    const updates: string[] = [];
+    const finalMessage = assistantMessage("fix auth tests and add coverage");
+    async function* stream(): AsyncIterable<AssistantMessageEvent> {
+      await Promise.resolve();
+      yield {
+        type: "text_delta",
+        contentIndex: 0,
+        delta: "fix",
+        partial: assistantMessage("fix"),
+      };
+      yield {
+        type: "text_delta",
+        contentIndex: 0,
+        delta: " auth tests",
+        partial: assistantMessage("fix auth tests"),
+      };
+      yield { type: "done", reason: "stop", message: finalMessage };
+    }
+
+    const candidate = await createPiModelSuggestionBridge({
+      getContext: createContext,
+      stream,
+    }).suggest(
+      createSnapshot("fix auth"),
+      "streamed",
+      new AbortController().signal,
+      (partial) => updates.push(partial.edit.text),
+    );
+
+    expect(updates).toEqual([" tests"]);
+    expect(candidate?.edit.text).toBe(" tests and add coverage");
   });
 
   it("projects a full-prompt response to the missing suffix", async () => {
     const candidate = await createPiModelSuggestionBridge({
       getContext: createContext,
-      complete: () =>
-        Promise.resolve({
-          content: [{ type: "text" as const, text: "fix auth tests" }],
-          stopReason: "stop",
-        }),
+      stream: () => streamFromMessage(assistantMessage("fix auth tests")),
     }).suggest(
       createSnapshot("fix auth"),
       "full-prompt",
@@ -100,12 +135,9 @@ describe("Pi model suggestion bridge", () => {
     const controller = new AbortController();
     const bridge = createPiModelSuggestionBridge({
       getContext: () => context,
-      complete: (_model, _request, options) => {
+      stream: (_model, _request, options) => {
         expect(options.signal).toBe(controller.signal);
-        return Promise.resolve({
-          content: [{ type: "text" as const, text: "first\nsecond" }],
-          stopReason: "stop",
-        });
+        return streamFromMessage(assistantMessage("first\nsecond"));
       },
     });
     await expect(
@@ -144,4 +176,19 @@ function createSnapshot(text: string): PromptSnapshot {
     workingDirectory: "/fixture",
     sessionId: "session-1",
   };
+}
+
+function assistantMessage(text: string, output = 2): AssistantMessage {
+  return {
+    content: [{ type: "text", text }],
+    usage: { output },
+    stopReason: "stop",
+  };
+}
+
+async function* streamFromMessage(
+  message: AssistantMessage,
+): AsyncIterable<AssistantMessageEvent> {
+  await Promise.resolve();
+  yield { type: "done", reason: "stop", message };
 }
