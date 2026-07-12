@@ -9,8 +9,9 @@ Node 24.16.0, npm 11.16.0, Pi 0.80.6, and Codex CLI 0.144.1.
 
 - `build`: `npm run build` exited 0 and compiled all eleven workspaces.
 - `status`: `npm run chat-suggest -- status` exited 0 with the fake provider by
-  default. Pi reported `runtime-handshake-required`; Codex stock TUI reported
-  `inlineRender: none`; Claude was unavailable on this machine.
+  default and reported the shared 100 ms debounce. Pi reported
+  `runtime-handshake-required`; Codex stock TUI reported `inlineRender: none`;
+  Claude was unavailable on this machine.
 - `fake-demo`: `npm run chat-suggest -- demo --provider fake` exited 0, accepted
   one deterministic suffix, and reported `submitted: false`.
 - `context-preview`:

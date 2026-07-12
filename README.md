@@ -147,7 +147,7 @@ Create `.chat-suggestion.json` only when you need to change defaults. The
 `CHAT_SUGGEST_CONFIG` environment variable may point to an absolute config
 file. Unknown fields are rejected.
 
-Defaults are enabled suggestions, a 200 ms debounce, an 1,800 ms general
+Defaults are enabled suggestions, a 100 ms debounce, an 1,800 ms general
 request timeout, an 8,000 ms Codex suggestion timeout, a three-character
 minimum prefix, and the fake provider. Drafts are
 bounded to 8 KiB, context to 48 KiB, and candidates to 160 Unicode characters

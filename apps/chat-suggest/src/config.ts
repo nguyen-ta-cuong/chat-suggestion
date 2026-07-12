@@ -7,6 +7,7 @@ import {
   MAX_DRAFT_BYTES,
   type ContextSourceKind,
 } from "@chat-suggestion/protocol";
+import { DEFAULT_SUGGESTION_CONFIGURATION } from "@chat-suggestion/engine";
 import {
   parseOpenAICompatibleProviderConfig,
   type OpenAICompatibleProviderConfig,
@@ -77,10 +78,11 @@ export function defaultConfiguration(): ChatSuggestConfiguration {
   const configuration: ChatSuggestConfiguration = {
     enabled: true,
     provider: Object.freeze({ kind: "fake" }),
-    debounceMs: 200,
-    requestTimeoutMs: 1_800,
+    debounceMs: DEFAULT_SUGGESTION_CONFIGURATION.debounceMs,
+    requestTimeoutMs: DEFAULT_SUGGESTION_CONFIGURATION.requestTimeoutMs,
     codexSuggestionTimeoutMs: 8_000,
-    minimumPrefixCharacters: 3,
+    minimumPrefixCharacters:
+      DEFAULT_SUGGESTION_CONFIGURATION.minimumPrefixCharacters,
     context: Object.freeze({
       enabledSources: Object.freeze({ ...DEFAULT_ENABLED_SOURCES }),
       sourceByteLimits: Object.freeze({ ...CONTEXT_SOURCE_BYTE_LIMITS }),

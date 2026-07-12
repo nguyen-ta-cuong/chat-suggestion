@@ -33,7 +33,7 @@ describe("SuggestionCoordinator", () => {
     }
 
     expect(harness.scheduler.pendingCount()).toBe(1);
-    harness.scheduler.advanceBy(199);
+    harness.scheduler.advanceBy(99);
     expect(harness.requests).toHaveLength(0);
     harness.scheduler.advanceBy(1);
     await flushPromises();
@@ -51,7 +51,7 @@ describe("SuggestionCoordinator", () => {
     const delayed = deferred<SuggestionCandidate | null>();
     const harness = createHarness({ providerResult: delayed.promise });
     harness.coordinator.update(createInput(1, "first draft"));
-    harness.scheduler.advanceBy(200);
+    harness.scheduler.advanceBy(100);
     await flushPromises();
     expect(harness.requests).toHaveLength(1);
 
@@ -93,10 +93,10 @@ describe("SuggestionCoordinator", () => {
     });
 
     coordinator.update(createInput(1, "older draft"));
-    scheduler.advanceBy(200);
+    scheduler.advanceBy(100);
     await flushPromises();
     coordinator.update(createInput(2, "newer draft"));
-    scheduler.advanceBy(200);
+    scheduler.advanceBy(100);
     await flushPromises();
 
     second.resolve(candidateFor(requiredAt(requests, 1), " newer result"));
@@ -133,7 +133,7 @@ describe("SuggestionCoordinator", () => {
     const harness = createHarness({ providerResult: delayed.promise });
     const original = createInput(1, "stable draft");
     harness.coordinator.update(original);
-    harness.scheduler.advanceBy(200);
+    harness.scheduler.advanceBy(100);
     await flushPromises();
 
     harness.coordinator.update(changeInput(original));
@@ -147,7 +147,7 @@ describe("SuggestionCoordinator", () => {
   it("dismisses visible decoration without accepting or modifying text", async () => {
     const harness = createHarness();
     harness.coordinator.update(createInput(1, "keep this draft"));
-    harness.scheduler.advanceBy(200);
+    harness.scheduler.advanceBy(100);
     await flushPromises();
 
     expect(harness.coordinator.dismiss()).toBe(true);
@@ -160,7 +160,7 @@ describe("SuggestionCoordinator", () => {
   it("accepts a current candidate exactly once", async () => {
     const harness = createHarness();
     harness.coordinator.update(createInput(1, "accept this"));
-    harness.scheduler.advanceBy(200);
+    harness.scheduler.advanceBy(100);
     await flushPromises();
 
     expect(harness.coordinator.acceptAll()).toBe(true);
@@ -173,7 +173,7 @@ describe("SuggestionCoordinator", () => {
     const harness = createHarness();
     const input = createInput(1, "stable input");
     harness.coordinator.update(input);
-    harness.scheduler.advanceBy(200);
+    harness.scheduler.advanceBy(100);
     await flushPromises();
 
     harness.coordinator.update(input);
@@ -206,7 +206,7 @@ describe("SuggestionCoordinator", () => {
     const context = deferred<ContextEnvelope>();
     const harness = createHarness({ contextResult: context.promise });
     harness.coordinator.update(createInput(1, "dispose pending"));
-    harness.scheduler.advanceBy(200);
+    harness.scheduler.advanceBy(100);
     await flushPromises();
 
     expect(harness.scheduler.pendingCount()).toBe(1);
@@ -231,7 +231,7 @@ describe("SuggestionCoordinator", () => {
           : {}),
       });
       harness.coordinator.update(createInput(1, secret));
-      harness.scheduler.advanceBy(200);
+      harness.scheduler.advanceBy(100);
       await flushPromises();
 
       expect(harness.coordinator.state().phase).toBe("idle");
@@ -247,7 +247,7 @@ describe("SuggestionCoordinator", () => {
     const context = deferred<ContextEnvelope>();
     const harness = createHarness({ contextResult: context.promise });
     harness.coordinator.update(createInput(1, "timeout draft"));
-    harness.scheduler.advanceBy(200);
+    harness.scheduler.advanceBy(100);
     await flushPromises();
 
     harness.scheduler.advanceBy(1_800);
@@ -263,7 +263,7 @@ describe("SuggestionCoordinator", () => {
     const text = "fix 👩🏽‍💻 e\u0301 漢字";
     const harness = createHarness({ suffix: "\u001b[31m safe 漢字\u001b[0m" });
     harness.coordinator.update(createInput(1, text));
-    harness.scheduler.advanceBy(200);
+    harness.scheduler.advanceBy(100);
     await flushPromises();
 
     expect(harness.requests[0]?.snapshot.cursorByte).toBe(utf8ByteLength(text));
@@ -299,7 +299,7 @@ describe("SuggestionCoordinator", () => {
       requestId: () => "request-invalid",
     });
     coordinator.update(createInput(1, "do not replace"));
-    scheduler.advanceBy(200);
+    scheduler.advanceBy(100);
     await flushPromises();
 
     expect(surface.shown).toHaveLength(0);
@@ -309,7 +309,7 @@ describe("SuggestionCoordinator", () => {
   it("suppresses a dismissed duplicate for the unchanged snapshot", async () => {
     const harness = createHarness();
     harness.coordinator.update(createInput(1, "same snapshot"));
-    harness.scheduler.advanceBy(200);
+    harness.scheduler.advanceBy(100);
     await flushPromises();
     expect(harness.coordinator.dismiss()).toBe(true);
 

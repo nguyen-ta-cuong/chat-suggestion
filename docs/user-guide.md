@@ -24,7 +24,7 @@ Clone the repository, enter its root, run npm install, then build.
     npm run chat-suggest -- status
 
 Status reports redacted configuration and current capability downgrades. With no
-.chat-suggestion.json, the provider is fake, debounce is 200 ms, and no project
+.chat-suggestion.json, the provider is fake, debounce is 100 ms, and no project
 is trusted. Outside a Pi TUI it correctly says a runtime handshake is required.
 
 ## First offline run
@@ -41,7 +41,7 @@ provider.
 
 Create .chat-suggestion.json only to change a default. CHAT_SUGGEST_CONFIG may
 name an absolute configuration file. Unknown fields are rejected. Defaults are
-enabled suggestions, a 200 ms debounce, an 1,800 ms general request timeout, an
+enabled suggestions, a 100 ms debounce, an 1,800 ms general request timeout, an
 8,000 ms Codex suggestion timeout, a three-character minimum prefix, and the
 fake provider.
 

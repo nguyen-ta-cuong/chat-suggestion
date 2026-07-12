@@ -5,7 +5,10 @@ import { join } from "node:path";
 import type { ClaudeCapabilityReport } from "@chat-suggestion/adapter-claude";
 import type { CodexCapabilityReport } from "@chat-suggestion/adapter-codex";
 import { compilePtyProfile } from "@chat-suggestion/adapter-pty";
-import { SuggestionCoordinator } from "@chat-suggestion/engine";
+import {
+  DEFAULT_SUGGESTION_CONFIGURATION,
+  SuggestionCoordinator,
+} from "@chat-suggestion/engine";
 import {
   PROTOCOL_VERSION,
   utf8ByteLength,
@@ -58,6 +61,11 @@ const DISABLED_CAPABILITIES: AdapterCapabilities = {
 };
 
 describe("integrated application", () => {
+  it("uses a 100 ms shared debounce default", () => {
+    expect(DEFAULT_SUGGESTION_CONFIGURATION.debounceMs).toBe(100);
+    expect(defaultConfiguration().debounceMs).toBe(100);
+  });
+
   it("accepts the deterministic fake suffix exactly once without submitting", async () => {
     const result = await runFakeDemo(defaultConfiguration());
 
