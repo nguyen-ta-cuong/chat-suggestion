@@ -24,7 +24,7 @@ Clone the repository, enter its root, run npm install, then build.
     npm run chat-suggest -- status
 
 Status reports redacted configuration and current capability downgrades. With no
-.chat-suggestion.json, the provider is fake, debounce is 200 ms, and no project
+.chat-suggestion.json, the provider is fake, debounce is 100 ms, and no project
 is trusted. Outside a Pi TUI it correctly says a runtime handshake is required.
 
 ## First offline run
@@ -41,8 +41,9 @@ provider.
 
 Create .chat-suggestion.json only to change a default. CHAT_SUGGEST_CONFIG may
 name an absolute configuration file. Unknown fields are rejected. Defaults are
-enabled suggestions, a 200 ms debounce, an 1,800 ms request timeout, a
-three-character minimum prefix, and the fake provider.
+enabled suggestions, a 100 ms debounce, an 1,800 ms general request timeout, an
+8,000 ms Codex suggestion timeout, a three-character minimum prefix, and the
+fake provider.
 
 Additional context is bounded to 48 KiB; draft to 8 KiB; and a candidate to 160
 Unicode characters, one newline, and 1,024 UTF-8 bytes. Per-source limits are
@@ -148,7 +149,50 @@ affect this offline check. Exit with Ctrl-D on an empty editor.
 This is a manual-host check. Remove /tmp/chat-suggestion-pi-smoke after the
 smoke session if desired.
 
-## Codex, Claude, and experimental PTY
+## Codex ghost text
+
+Launching stock `codex` cannot show Chat Suggestion ghost text because that TUI
+does not expose a documented live prompt-editor API. Use this repository's App
+Server frontend instead:
+
+<!-- user-guide-command: codex-frontend -->
+
+    npm run chat-suggest -- codex
+
+The frontend owns its editor. Type at least three characters and pause. Dim text
+appears after the real draft; Tab inserts it without submitting, Escape clears
+it, Enter sends only the accepted draft, Ctrl-C clears an unfinished line or
+interrupts an active turn, and Ctrl-D exits when the editor is empty. Agent text
+streams below the editor and the same coding thread continues after each turn.
+
+This is a remote/model-backed command. When no OpenAI-compatible suggestion
+provider is configured, it creates a separate ephemeral, read-only Codex thread
+for suggestion generation and uses the installed Codex account and selected
+model. Suggestions can consume Codex quota. The coding conversation uses a
+different normal thread. App Server approval requests currently fail closed;
+tasks requiring an escalation should be continued in stock Codex.
+
+The default Codex suggestion timeout is 8,000 ms, separate from the general
+1,800 ms provider timeout. You can select any model exposed by your Codex
+installation without hardcoding a local path:
+
+    {
+      "codexSuggestionTimeoutMs": 8000,
+      "codexSuggestionModel": "your-available-codex-model"
+    }
+
+For a rendering-only check, initialize the real App Server but keep suggestion
+generation deterministic and offline:
+
+    npm run chat-suggest -- codex --provider fake
+
+Type exactly `fix the failing auth`, do not press Enter, and wait for
+` tests and add a regression test`. Tab must insert it without starting a coding
+turn. Clear the line with Ctrl-C, then exit with Ctrl-D. `--provider fake`
+covers only suggestion generation; pressing Enter still sends the draft to
+Codex.
+
+## Claude, companion plugins, and experimental PTY
 
 The repository also includes installable companion plugin directories under
 `plugins/codex-chat-suggestion/` and `plugins/claude-chat-suggestion/`. Their
@@ -157,10 +201,10 @@ Codex and Claude editors still report `inlineRender: none`; neither plugin can
 observe a live draft or paint ghost text.
 
 Executable discovery is not semantic editor access. The stock Codex TUI is not
-supported for inline suggestions. A separately built custom frontend may use a
-verified Codex app-server handshake because it owns its editor. The stock Claude
-TUI is not supported either: hooks and configuration do not expose the live
-draft, cursor, decoration, and atomic non-submitting insertion.
+supported for inline suggestions; the `chat-suggest codex` command above is the
+separately owned editor. The stock Claude TUI is not supported either: hooks and
+configuration do not expose the live draft, cursor, decoration, and atomic
+non-submitting insertion.
 
 Experimental PTY support is adjacent, not inline. It is limited to macOS and
 Linux where the optional dependency loads. It suspends on hidden input, cursor
@@ -178,7 +222,8 @@ child launch with exit status 78.
     npm run chat-suggest -- wrap --experimental-pty -- codex
 
 This refusal is expected. See
-[compatibility evidence](operations/compatibility.md).
+[compatibility evidence](operations/compatibility.md). It is not the Codex
+launch command; use `npm run chat-suggest -- codex`.
 
 ## Troubleshooting, disable, and uninstall
 

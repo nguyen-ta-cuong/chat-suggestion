@@ -7,6 +7,7 @@ import {
   MAX_DRAFT_BYTES,
   type ContextSourceKind,
 } from "@chat-suggestion/protocol";
+import { DEFAULT_SUGGESTION_CONFIGURATION } from "@chat-suggestion/engine";
 import {
   parseOpenAICompatibleProviderConfig,
   type OpenAICompatibleProviderConfig,
@@ -36,6 +37,8 @@ export interface ChatSuggestConfiguration {
   readonly provider: ProviderConfiguration;
   readonly debounceMs: number;
   readonly requestTimeoutMs: number;
+  readonly codexSuggestionTimeoutMs: number;
+  readonly codexSuggestionModel?: string;
   readonly minimumPrefixCharacters: number;
   readonly context: ContextConfiguration;
   readonly trustedProjects: readonly string[];
@@ -75,9 +78,11 @@ export function defaultConfiguration(): ChatSuggestConfiguration {
   const configuration: ChatSuggestConfiguration = {
     enabled: true,
     provider: Object.freeze({ kind: "fake" }),
-    debounceMs: 200,
-    requestTimeoutMs: 1_800,
-    minimumPrefixCharacters: 3,
+    debounceMs: DEFAULT_SUGGESTION_CONFIGURATION.debounceMs,
+    requestTimeoutMs: DEFAULT_SUGGESTION_CONFIGURATION.requestTimeoutMs,
+    codexSuggestionTimeoutMs: 8_000,
+    minimumPrefixCharacters:
+      DEFAULT_SUGGESTION_CONFIGURATION.minimumPrefixCharacters,
     context: Object.freeze({
       enabledSources: Object.freeze({ ...DEFAULT_ENABLED_SOURCES }),
       sourceByteLimits: Object.freeze({ ...CONTEXT_SOURCE_BYTE_LIMITS }),
@@ -137,6 +142,8 @@ export function parseConfiguration(
     "provider",
     "debounceMs",
     "requestTimeoutMs",
+    "codexSuggestionTimeoutMs",
+    "codexSuggestionModel",
     "minimumPrefixCharacters",
     "context",
     "trustedProjects",
@@ -144,6 +151,10 @@ export function parseConfiguration(
     "experimentalPty",
   ]);
   const defaults = defaultConfiguration();
+  const codexSuggestionModel = optionalString(
+    root.codexSuggestionModel,
+    "codexSuggestionModel",
+  );
   const configuration: ChatSuggestConfiguration = {
     enabled: optionalBoolean(root.enabled, defaults.enabled, "enabled"),
     provider: parseProvider(root.provider),
@@ -161,6 +172,14 @@ export function parseConfiguration(
       1,
       60_000,
     ),
+    codexSuggestionTimeoutMs: boundedInteger(
+      root.codexSuggestionTimeoutMs,
+      defaults.codexSuggestionTimeoutMs,
+      "codexSuggestionTimeoutMs",
+      1_000,
+      60_000,
+    ),
+    ...(codexSuggestionModel === undefined ? {} : { codexSuggestionModel }),
     minimumPrefixCharacters: boundedInteger(
       root.minimumPrefixCharacters,
       defaults.minimumPrefixCharacters,
@@ -188,6 +207,9 @@ export function parseConfiguration(
   if (configuration.requestTimeoutMs <= configuration.debounceMs) {
     throw new Error("requestTimeoutMs must be greater than debounceMs");
   }
+  if (configuration.codexSuggestionTimeoutMs <= configuration.debounceMs) {
+    throw new Error("codexSuggestionTimeoutMs must be greater than debounceMs");
+  }
   return Object.freeze(configuration);
 }
 
@@ -213,6 +235,9 @@ export function redactedConfiguration(
     provider,
     debounceMs: configuration.debounceMs,
     requestTimeoutMs: configuration.requestTimeoutMs,
+    codexSuggestionTimeoutMs: configuration.codexSuggestionTimeoutMs,
+    codexSuggestionModel:
+      configuration.codexSuggestionModel ?? "selected-default",
     minimumPrefixCharacters: configuration.minimumPrefixCharacters,
     context: configuration.context,
     trustedProjectCount: configuration.trustedProjects.length,
@@ -349,6 +374,26 @@ function optionalBoolean(
   if (value === undefined) return fallback;
   if (typeof value !== "boolean") throw new Error(`${name} must be a boolean`);
   return value;
+}
+
+function optionalString(value: unknown, name: string): string | undefined {
+  if (value === undefined) return undefined;
+  if (
+    typeof value !== "string" ||
+    value.length === 0 ||
+    value.length > 128 ||
+    containsControlCharacter(value)
+  ) {
+    throw new Error(`${name} must be a non-empty model identifier`);
+  }
+  return value;
+}
+
+function containsControlCharacter(value: string): boolean {
+  return Array.from(value).some((character) => {
+    const codePoint = character.codePointAt(0) ?? 0;
+    return codePoint <= 0x1f || codePoint === 0x7f;
+  });
 }
 
 function boundedInteger(

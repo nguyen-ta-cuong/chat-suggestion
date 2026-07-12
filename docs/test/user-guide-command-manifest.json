@@ -42,6 +42,14 @@
       "redactedOutputPattern": "dim end-of-line text"
     },
     {
+      "id": "codex-frontend",
+      "command": "npm run chat-suggest -- codex",
+      "workingDirectory": "repository-root",
+      "safetyClass": "manual-host",
+      "expectedExitStatus": 0,
+      "redactedOutputPattern": "Chat Suggestion Codex frontend"
+    },
+    {
       "id": "pty-refusal",
       "command": "npm run chat-suggest -- wrap --experimental-pty -- codex",
       "workingDirectory": "repository-root",

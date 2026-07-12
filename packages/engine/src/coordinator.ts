@@ -29,11 +29,12 @@ import type {
   TimerHandle,
 } from "./types.js";
 
-const DEFAULT_CONFIGURATION: SuggestionConfiguration = {
-  debounceMs: 200,
-  requestTimeoutMs: 1_800,
-  minimumPrefixCharacters: 3,
-};
+export const DEFAULT_SUGGESTION_CONFIGURATION: Readonly<SuggestionConfiguration> =
+  Object.freeze({
+    debounceMs: 100,
+    requestTimeoutMs: 1_800,
+    minimumPrefixCharacters: 3,
+  });
 
 interface ActiveRequest {
   readonly requestId: string;
@@ -426,7 +427,7 @@ const systemScheduler: SuggestionScheduler = {
 function validateConfiguration(
   configuration: Partial<SuggestionConfiguration> | undefined,
 ): SuggestionConfiguration {
-  const merged = { ...DEFAULT_CONFIGURATION, ...configuration };
+  const merged = { ...DEFAULT_SUGGESTION_CONFIGURATION, ...configuration };
   if (
     !Number.isFinite(merged.debounceMs) ||
     merged.debounceMs < 100 ||

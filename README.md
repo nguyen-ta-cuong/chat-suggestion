@@ -90,7 +90,43 @@ Type at least three non-whitespace characters, wait about 150 ms, then try Tab
 and Escape. Exit with Ctrl-D on an empty editor. Remove
 `/tmp/chat-suggestion-pi-smoke` when finished.
 
-## Codex and Claude Code
+## Codex ghost-text frontend
+
+The stock `codex` TUI does not expose its live editor, so launching `codex`
+directly cannot show Chat Suggestion decoration. This repository ships a
+separate terminal frontend that owns its prompt editor and uses Codex's
+documented App Server for coding turns:
+
+```sh
+npm run build
+npm run chat-suggest -- codex
+```
+
+Type at least three characters and pause. The frontend displays a dim suffix,
+Tab accepts it without sending, Escape dismisses it, Enter sends the real draft
+to Codex, Ctrl-C clears an unfinished draft or interrupts an active turn, and
+Ctrl-D exits from an empty editor. The default Codex suggestion timeout is eight
+seconds because agent-model first text is slower than a dedicated completion
+API. Set `codexSuggestionModel` to an available Codex model when you want a
+different model; no model or local executable path is hardcoded.
+
+Running this command without `--provider fake` creates a separate ephemeral,
+read-only Codex thread for suggestions. Drafts sent to that thread can use your
+Codex quota. Coding prompts use a different normal Codex thread. For a
+credential-free rendering check, run:
+
+```sh
+npm run chat-suggest -- codex --provider fake
+```
+
+Type exactly `fix the failing auth` and wait for
+` tests and add a regression test`. Do not press Enter during this offline
+check: fake applies only to suggestion generation, while Enter still starts a
+real Codex coding turn. The frontend currently declines App Server approval
+requests safely, so operations requiring an escalation must be retried in the
+stock Codex TUI.
+
+## Companion plugins and Claude Code
 
 The repository includes companion plugin directories:
 
@@ -101,7 +137,8 @@ Their `chat-suggest` skills are manual, post-submit continuations. They do not
 observe a live draft, cursor, or editor decoration and do not insert or submit
 anything automatically. The stock Codex and Claude TUIs therefore report
 `inlineRender: none`; a custom frontend that owns its editor is a separate
-integration. Follow each plugin README and the host's documented marketplace
+integration. The supported Codex inline surface is the `chat-suggest codex`
+frontend above. Follow each plugin README and the host's documented marketplace
 flow for installation.
 
 ## Configuration and privacy
@@ -110,8 +147,9 @@ Create `.chat-suggestion.json` only when you need to change defaults. The
 `CHAT_SUGGEST_CONFIG` environment variable may point to an absolute config
 file. Unknown fields are rejected.
 
-Defaults are enabled suggestions, a 200 ms debounce, an 1,800 ms request
-timeout, a three-character minimum prefix, and the fake provider. Drafts are
+Defaults are enabled suggestions, a 100 ms debounce, an 1,800 ms general
+request timeout, an 8,000 ms Codex suggestion timeout, a three-character
+minimum prefix, and the fake provider. Drafts are
 bounded to 8 KiB, context to 48 KiB, and candidates to 160 Unicode characters
 and 1,024 UTF-8 bytes. These limits and redaction rules are defense in depth,
 not a guarantee that sensitive text is absent.
@@ -139,6 +177,9 @@ launch:
 ```sh
 npm run chat-suggest -- wrap --experimental-pty -- codex
 ```
+
+This command is a refusal/safety diagnostic, not the Codex ghost-text launch
+path. Use `npm run chat-suggest -- codex` for the owned editor.
 
 ## Disable and uninstall
 

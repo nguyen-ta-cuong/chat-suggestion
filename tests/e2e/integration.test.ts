@@ -5,7 +5,10 @@ import { join } from "node:path";
 import type { ClaudeCapabilityReport } from "@chat-suggestion/adapter-claude";
 import type { CodexCapabilityReport } from "@chat-suggestion/adapter-codex";
 import { compilePtyProfile } from "@chat-suggestion/adapter-pty";
-import { SuggestionCoordinator } from "@chat-suggestion/engine";
+import {
+  DEFAULT_SUGGESTION_CONFIGURATION,
+  SuggestionCoordinator,
+} from "@chat-suggestion/engine";
 import {
   PROTOCOL_VERSION,
   utf8ByteLength,
@@ -58,6 +61,11 @@ const DISABLED_CAPABILITIES: AdapterCapabilities = {
 };
 
 describe("integrated application", () => {
+  it("uses a 100 ms shared debounce default", () => {
+    expect(DEFAULT_SUGGESTION_CONFIGURATION.debounceMs).toBe(100);
+    expect(defaultConfiguration().debounceMs).toBe(100);
+  });
+
   it("accepts the deterministic fake suffix exactly once without submitting", async () => {
     const result = await runFakeDemo(defaultConfiguration());
 
@@ -184,6 +192,13 @@ describe("integrated application", () => {
     expect(() =>
       parseConfiguration({ debounceMs: 1_000, requestTimeoutMs: 1_000 }),
     ).toThrow("greater than debounceMs");
+    expect(() => parseConfiguration({ codexSuggestionTimeoutMs: 999 })).toThrow(
+      "between 1000 and 60000",
+    );
+    expect(
+      parseConfiguration({ codexSuggestionModel: "gpt-fast" })
+        .codexSuggestionModel,
+    ).toBe("gpt-fast");
     expect(
       parseConfiguration({ trustedProjects: ["project"] }, "/workspace")
         .trustedProjects,
@@ -217,6 +232,30 @@ describe("integrated application", () => {
     expect(exitCode).toBe(78);
     expect(standardError).toContain("child was not launched");
     expect(standardError).not.toContain("/private/executable");
+  });
+
+  it("routes the Codex command to the owned ghost-text frontend", async () => {
+    const root = await mkdtemp(join(tmpdir(), "chat-suggest-codex-frontend-"));
+    let observed: unknown;
+    const exitCode = await runCli(["codex", "--provider", "fake"], {
+      cwd: root,
+      environment: {},
+      codexFrontend: (options) => {
+        observed = options;
+        return Promise.resolve(0);
+      },
+      io: {
+        stdout: () => undefined,
+        stderr: () => undefined,
+      },
+    });
+
+    expect(exitCode).toBe(0);
+    expect(observed).toMatchObject({
+      cwd: root,
+      offlineFake: true,
+      configuration: { provider: { kind: "fake" } },
+    });
   });
 
   it("composes a provider request with bounded empty context when sources are disabled", async () => {

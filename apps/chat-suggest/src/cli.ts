@@ -20,6 +20,10 @@ import {
   resolvePiPackagePath,
   runFakeDemo,
 } from "./service.js";
+import {
+  runCodexFrontend,
+  type RunCodexFrontendOptions,
+} from "./codex-runtime.js";
 
 export interface CliIo {
   readonly stdout: (text: string) => void;
@@ -30,6 +34,9 @@ export interface CliDependencies extends CapabilityProbeDependencies {
   readonly cwd?: string;
   readonly environment?: Readonly<Record<string, string | undefined>>;
   readonly io?: CliIo;
+  readonly codexFrontend?: (
+    options: RunCodexFrontendOptions,
+  ) => Promise<number>;
 }
 
 export async function runCli(
@@ -83,6 +90,18 @@ export async function runCli(
     if (command === "pi" && subcommand === "install-path") {
       io.stdout(`${resolvePiPackagePath()}\n`);
       return 0;
+    }
+
+    if (command === "codex") {
+      return await (dependencies.codexFrontend ?? runCodexFrontend)({
+        configuration,
+        cwd: dependencies.cwd ?? process.cwd(),
+        environment: {
+          ...process.env,
+          ...dependencies.environment,
+        },
+        offlineFake: hasOption(arguments_, "--provider", "fake"),
+      });
     }
 
     if (command === "wrap") {
@@ -217,6 +236,7 @@ function usage(): string {
     "  chat-suggest demo [--provider fake]",
     "  chat-suggest context preview [--provider fake] [--trust-project]",
     "  chat-suggest pi install-path",
+    "  chat-suggest codex [--provider fake]",
     "  chat-suggest wrap --experimental-pty -- <codex|claude> [args...]",
   ].join("\n");
 }
