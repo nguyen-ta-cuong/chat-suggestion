@@ -23,7 +23,7 @@ export type PiModelComplete = (
   options: {
     signal: AbortSignal;
     maxTokens: number;
-    temperature: number;
+    sessionId?: string;
     apiKey?: string;
     headers?: Record<string, string>;
     env?: Record<string, string>;
@@ -66,13 +66,16 @@ export function createPiModelSuggestionBridge(
         content: snapshot.text,
         timestamp: Date.now(),
       };
+      // Keep suggestion traffic separate from Pi's agent conversation while
+      // still allowing providers to reuse session-scoped transports.
+      const suggestionSessionId = `chat-suggestion:${snapshot.sessionId}`;
       const completion = await complete(
         context.model,
         { systemPrompt: SYSTEM_PROMPT, messages: [message] },
         {
           signal,
           maxTokens: 64,
-          temperature: 0.2,
+          sessionId: suggestionSessionId,
           ...(auth.apiKey === undefined ? {} : { apiKey: auth.apiKey }),
           ...(auth.headers === undefined ? {} : { headers: auth.headers }),
           ...(auth.env === undefined ? {} : { env: auth.env }),

@@ -27,7 +27,19 @@ Recorded 2026-07-11 on macOS 15 (Darwin 25.5.0, arm64) with Node 24.16.0, npm
 - `pty-refusal`: with both required opt-ins, the wrapper exited 78 before child
   launch and reported that no exact fixture-tested PTY profile matched.
 
-The model-backed Pi path was not run automatically because it requires a
-selected provider, credentials, and explicit acknowledgement that the bounded
-draft may be transmitted. The offline Pi smoke path remains the credential-free
-rendering proof.
+- `pi-model-smoke`: after explicit user authorization, the production extension
+  was run with Pi's selected `openai-codex/gpt-5.4-mini` model and a synthetic
+  draft. Pi rendered a dim, single-line suffix and Tab inserted it without
+  submitting. A metadata-only repeat measured 1,652 ms for the model call. The
+  initial request failure was traced to the bridge forcing an unsupported
+  `temperature` parameter; the successful check omitted it. No raw provider
+  credentials or private prompt content were recorded.
+- `pi-latency-smoke`: a metadata-only synthetic benchmark measured 2,729 ms
+  without a provider session, 2,399 ms for the first dedicated-session call, and
+  1,043 ms after connection reuse. Streaming first text arrived at 962 ms and
+  completed at 1,074 ms. The production TUI then preserved the untyped remainder
+  immediately when one typed character matched the visible ghost; Tab accepted
+  it without submission. Timings are observations, not guarantees.
+
+The offline Pi smoke path remains the credential-free rendering proof. The
+model-backed smoke may use provider quota or incur provider charges.

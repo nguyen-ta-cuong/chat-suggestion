@@ -11,11 +11,17 @@ describe("Pi model suggestion bridge", () => {
       (
         _model: unknown,
         request: { messages: readonly Message[]; systemPrompt: string },
-        options: { maxTokens: number },
+        options: {
+          maxTokens: number;
+          sessionId?: string;
+          temperature?: number;
+        },
       ) => {
         expect(request.messages[0]?.content).toBe("fix auth");
         expect(request.systemPrompt).toContain("only the short text");
         expect(options.maxTokens).toBe(64);
+        expect(options.sessionId).toBe("chat-suggestion:session-1");
+        expect(options).not.toHaveProperty("temperature");
         return Promise.resolve({
           content: [
             { type: "text" as const, text: " tests and add a regression test" },

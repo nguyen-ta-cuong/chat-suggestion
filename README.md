@@ -40,6 +40,13 @@ credential resolver. If Pi has no selected model or cannot resolve credentials,
 it fails closed and leaves the editor unchanged. Review provider privacy and
 billing settings before trying the model-backed path.
 
+The production editor waits 100 ms after the last keystroke before requesting
+a suggestion. It keeps suggestion transport reuse isolated from Pi's agent
+conversation. If you type the beginning of a visible ghost, the remaining text
+shrinks immediately without another model call; a mismatch clears it and starts
+a fresh debounce. The first request and overall speed still depend on the
+selected model, provider, and network.
+
 ### Local development entry
 
 Build the compiled extension and load it explicitly from Pi:

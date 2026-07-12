@@ -34,6 +34,8 @@ export const PI_NATIVE_CAPABILITIES: AdapterCapabilities = Object.freeze({
   attachmentReferences: false,
 });
 
+export const DEFAULT_DEBOUNCE_MS = 100;
+
 export interface SuggestionBridge {
   suggest(
     snapshot: PromptSnapshot,
@@ -88,7 +90,7 @@ export class PiSuggestionEditor extends CustomEditor {
     this.sessionId = options.sessionId;
     this.keybindings = options.keybindings;
     this.styleDim = options.styleDim;
-    this.debounceMs = options.debounceMs ?? 200;
+    this.debounceMs = options.debounceMs ?? DEFAULT_DEBOUNCE_MS;
     this.enabled = options.enabled ?? true;
     this.onClear = options.onClear;
   }
@@ -142,6 +144,17 @@ export class PiSuggestionEditor extends CustomEditor {
     }
 
     const before = this.capturePosition();
+    const candidateBeforeEdit = this.candidate;
+    const candidateSnapshotBeforeEdit = this.candidateSnapshot;
+    const candidateWasCurrent = Boolean(
+      candidateBeforeEdit &&
+      candidateSnapshotBeforeEdit &&
+      this.isCandidateCurrent(
+        candidateBeforeEdit,
+        candidateSnapshotBeforeEdit,
+        candidateBeforeEdit.requestId,
+      ),
+    );
     const isPasteInput =
       this.pasteInProgress ||
       data.includes("\u001b[200~") ||
@@ -162,6 +175,13 @@ export class PiSuggestionEditor extends CustomEditor {
       this.revision += 1;
       this.onClear?.("edited");
       if (!isPasteInput) {
+        if (
+          candidateWasCurrent &&
+          candidateBeforeEdit &&
+          this.reuseMatchingCandidate(before, after, candidateBeforeEdit)
+        ) {
+          return;
+        }
         this.scheduleSuggestion(after);
       }
       return;
@@ -296,6 +316,41 @@ export class PiSuggestionEditor extends CustomEditor {
       workingDirectory: this.workingDirectory,
       sessionId: this.sessionId,
     });
+  }
+
+  private reuseMatchingCandidate(
+    before: EditorPosition,
+    after: EditorPosition,
+    candidate: SuggestionCandidate,
+  ): boolean {
+    if (!after.text.startsWith(before.text)) return false;
+
+    const appendedText = after.text.slice(before.text.length);
+    if (
+      appendedText.length === 0 ||
+      !candidate.edit.text.startsWith(appendedText)
+    ) {
+      return false;
+    }
+
+    const remainingText = candidate.edit.text.slice(appendedText.length);
+    if (remainingText.length === 0) return false;
+
+    const snapshot = this.createSnapshot(after);
+    const requestId = `pi-reuse-${snapshot.revision}-${++this.requestSequence}`;
+    this.candidate = {
+      ...candidate,
+      requestId,
+      revision: snapshot.revision,
+      edit: {
+        startByte: snapshot.cursorByte,
+        endByte: snapshot.cursorByte,
+        text: remainingText,
+      },
+    };
+    this.candidateSnapshot = snapshot;
+    this.tui.requestRender();
+    return true;
   }
 
   private isCandidateCurrent(
