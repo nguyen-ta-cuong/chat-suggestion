@@ -4,8 +4,8 @@ This is short, redacted evidence for the commands published in
 [`docs/user-guide.md`](../user-guide.md). It deliberately omits workspace paths,
 drafts, context previews, credentials, and raw terminal recordings.
 
-Recorded 2026-07-11 on macOS 15 (Darwin 25.5.0, arm64) with Node 24.16.0, npm
-11.16.0, and Pi 0.80.6.
+Recorded 2026-07-11 through 2026-07-12 on macOS 15 (Darwin 25.5.0, arm64) with
+Node 24.16.0, npm 11.16.0, Pi 0.80.6, and Codex CLI 0.144.1.
 
 - `build`: `npm run build` exited 0 and compiled all eleven workspaces.
 - `status`: `npm run chat-suggest -- status` exited 0 with the fake provider by
@@ -26,6 +26,17 @@ Recorded 2026-07-11 on macOS 15 (Darwin 25.5.0, arm64) with Node 24.16.0, npm
   and the deterministic fake bridge.
 - `pty-refusal`: with both required opt-ins, the wrapper exited 78 before child
   launch and reported that no exact fixture-tested PTY profile matched.
+- `codex-frontend`: `npm run chat-suggest -- codex --provider fake` initialized
+  the installed App Server, displayed the documented deterministic suffix as dim
+  end-of-line decoration, accepted it with Tab without starting a coding turn,
+  and restored the terminal on Ctrl-D. No suggestion model request was made.
+- `codex-frontend-live`: `npm run chat-suggest -- codex` used a separate
+  ephemeral Codex suggestion thread and rendered a suffix for a synthetic draft.
+  The original 1,800 ms timeout canceled before output; the new 8,000 ms
+  Codex-specific default rendered successfully. Tab accepted without submission.
+  A separate harmless coding-turn smoke streamed `OK`, restored the empty
+  editor, and exited cleanly. Raw session content, credentials, and private
+  project text are intentionally omitted; live checks may consume Codex quota.
 
 - `pi-model-smoke`: after explicit user authorization, the production extension
   was run with Pi's selected `openai-codex/gpt-5.4-mini` model and a synthetic

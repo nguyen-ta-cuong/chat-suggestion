@@ -184,6 +184,13 @@ describe("integrated application", () => {
     expect(() =>
       parseConfiguration({ debounceMs: 1_000, requestTimeoutMs: 1_000 }),
     ).toThrow("greater than debounceMs");
+    expect(() => parseConfiguration({ codexSuggestionTimeoutMs: 999 })).toThrow(
+      "between 1000 and 60000",
+    );
+    expect(
+      parseConfiguration({ codexSuggestionModel: "gpt-fast" })
+        .codexSuggestionModel,
+    ).toBe("gpt-fast");
     expect(
       parseConfiguration({ trustedProjects: ["project"] }, "/workspace")
         .trustedProjects,
@@ -217,6 +224,30 @@ describe("integrated application", () => {
     expect(exitCode).toBe(78);
     expect(standardError).toContain("child was not launched");
     expect(standardError).not.toContain("/private/executable");
+  });
+
+  it("routes the Codex command to the owned ghost-text frontend", async () => {
+    const root = await mkdtemp(join(tmpdir(), "chat-suggest-codex-frontend-"));
+    let observed: unknown;
+    const exitCode = await runCli(["codex", "--provider", "fake"], {
+      cwd: root,
+      environment: {},
+      codexFrontend: (options) => {
+        observed = options;
+        return Promise.resolve(0);
+      },
+      io: {
+        stdout: () => undefined,
+        stderr: () => undefined,
+      },
+    });
+
+    expect(exitCode).toBe(0);
+    expect(observed).toMatchObject({
+      cwd: root,
+      offlineFake: true,
+      configuration: { provider: { kind: "fake" } },
+    });
   });
 
   it("composes a provider request with bounded empty context when sources are disabled", async () => {

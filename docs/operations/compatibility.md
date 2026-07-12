@@ -21,8 +21,11 @@ Plan 0011 owns the final fresh-user Pi installation and smoke-test guide.
 The adapter probes the executable, version, documented help surface, app-server
 schema, and initialization behavior without a paid model turn. Stock Codex TUI
 editor ownership is not established, so stock-TUI inline rendering remains
-`none`. A custom frontend may report app-server capability only after the
-complete runtime negotiation succeeds.
+`none`. `npm run chat-suggest -- codex` is the verified custom frontend: it owns
+the prompt buffer, renders a dim insertion suffix, accepts with Tab without
+submitting, and sends accepted drafts through the negotiated App Server. The
+installed Codex 0.144.1 smoke test exercised fake and live suggestions plus one
+harmless streamed coding turn. Approval requests currently fail closed.
 
 ## Claude
 

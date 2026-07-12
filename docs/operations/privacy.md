@@ -1,9 +1,25 @@
 # Privacy and remote transmission
 
-The default provider is `fake`; it performs no network request. The offline demo
-always uses that provider regardless of project configuration. A remote request
-is possible only when `provider.kind` is `openai-compatible` and the named API
-key environment variable is set.
+The default provider is `fake`; the offline demo always uses it and performs no
+model request regardless of project configuration. An OpenAI-compatible remote
+request is possible only when `provider.kind` is `openai-compatible` and the
+named API key environment variable is set.
+
+The `chat-suggest codex` command is an explicit exception because it launches a
+Codex client. When no OpenAI-compatible suggestion provider is configured, the
+frontend sends the bounded unfinished draft through a separate ephemeral,
+read-only Codex App Server thread for suggestion generation. This uses the
+installed Codex account and can consume quota. The suggestion prompt includes
+the draft but does not collect or send project context. Pressing Enter sends the
+accepted draft to the separate coding thread. Only an explicitly configured
+OpenAI-compatible suggestion provider collects enabled context, and project
+context still requires an exact `trustedProjects` match.
+
+`chat-suggest codex --provider fake` keeps suggestion generation deterministic
+and makes no suggestion model request. It still initializes the local App
+Server, and pressing Enter still starts a real Codex coding turn. For a fully
+offline rendering check, type only the documented fake prefix, avoid Enter, then
+clear and exit.
 
 Remote configuration has this shape:
 
