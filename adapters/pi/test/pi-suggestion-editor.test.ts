@@ -95,6 +95,105 @@ describe("PiSuggestionEditor public rendering spike", () => {
 });
 
 describe("PiSuggestionEditor key arbitration and freshness", () => {
+  it("renders and accepts a current partial before generation completes", async () => {
+    vi.useFakeTimers();
+    let capturedSignal: AbortSignal | undefined;
+    let resolveFinal:
+      ((candidate: SuggestionCandidate | null) => void) | undefined;
+    const bridge = {
+      suggest(
+        snapshot: PromptSnapshot,
+        requestId: string,
+        signal: AbortSignal,
+        onUpdate?: (candidate: SuggestionCandidate) => void,
+      ) {
+        capturedSignal = signal;
+        onUpdate?.(candidateFor(snapshot, " tests", requestId));
+        return new Promise<SuggestionCandidate | null>((resolve) => {
+          resolveFinal = resolve;
+        });
+      },
+    };
+    const editor = createEditor(bridge);
+    editor.focused = true;
+
+    editor.handleInput("a");
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(editor.render(30).join("\n")).toContain("tests");
+    editor.handleInput("\t");
+    expect(editor.getText()).toBe("a tests");
+    expect(capturedSignal?.aborted).toBe(true);
+    resolveFinal?.(null);
+  });
+
+  it("clears a streamed partial when the final generation fails", async () => {
+    vi.useFakeTimers();
+    let resolveFinal:
+      ((candidate: SuggestionCandidate | null) => void) | undefined;
+    const bridge = {
+      suggest(
+        snapshot: PromptSnapshot,
+        requestId: string,
+        _signal: AbortSignal,
+        onUpdate?: (candidate: SuggestionCandidate) => void,
+      ) {
+        onUpdate?.(candidateFor(snapshot, " tests", requestId));
+        return new Promise<SuggestionCandidate | null>((resolve) => {
+          resolveFinal = resolve;
+        });
+      },
+    };
+    const editor = createEditor(bridge);
+    editor.focused = true;
+
+    editor.handleInput("a");
+    await vi.advanceTimersByTimeAsync(1);
+    expect(editor.render(30).join("\n")).toContain("tests");
+
+    resolveFinal?.(null);
+    await Promise.resolve();
+    expect(editor.render(30).join("\n")).not.toContain("tests");
+  });
+
+  it("rejects a partial update from an obsolete prompt revision", async () => {
+    vi.useFakeTimers();
+    const pending: {
+      snapshot: PromptSnapshot;
+      requestId: string;
+      onUpdate?: (candidate: SuggestionCandidate) => void;
+    }[] = [];
+    const bridge = {
+      suggest(
+        snapshot: PromptSnapshot,
+        requestId: string,
+        _signal: AbortSignal,
+        onUpdate?: (candidate: SuggestionCandidate) => void,
+      ) {
+        pending.push({
+          snapshot,
+          requestId,
+          ...(onUpdate === undefined ? {} : { onUpdate }),
+        });
+        return new Promise<SuggestionCandidate | null>(() => undefined);
+      },
+    };
+    const editor = createEditor(bridge);
+    editor.focused = true;
+
+    editor.handleInput("a");
+    await vi.advanceTimersByTimeAsync(1);
+    editor.handleInput("b");
+
+    const obsolete = pending[0];
+    if (!obsolete) throw new Error("obsolete request was not captured");
+    obsolete.onUpdate?.(
+      candidateFor(obsolete.snapshot, " stale", obsolete.requestId),
+    );
+
+    expect(editor.render(30).join("\n")).not.toContain("stale");
+  });
+
   it("uses the minimum supported debounce for responsive typing", async () => {
     vi.useFakeTimers();
     const suggest = vi.fn(() => Promise.resolve(null));

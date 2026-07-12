@@ -40,6 +40,13 @@ Recorded 2026-07-11 on macOS 15 (Darwin 25.5.0, arm64) with Node 24.16.0, npm
   completed at 1,074 ms. The production TUI then preserved the untyped remainder
   immediately when one typed character matched the visible ghost; Tab accepted
   it without submission. Timings are observations, not guarantees.
+- `pi-progressive-smoke`: on a warm reusable connection, the selected model's
+  first text arrived in 821–872 ms and completed in 1,009–1,023 ms. SSE was
+  slower at 925 ms to first text, and explicit minimal reasoning was much slower
+  at 3,413 ms while emitting 75 reasoning deltas. The production bridge kept the
+  faster auto transport with omitted reasoning and rendered validated text
+  deltas immediately. A real Pi TUI repeat preserved matching type-through and
+  non-submitting Tab acceptance. Timings are observations, not guarantees.
 
 The offline Pi smoke path remains the credential-free rendering proof. The
 model-backed smoke may use provider quota or incur provider charges.

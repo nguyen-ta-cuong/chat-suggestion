@@ -41,6 +41,7 @@ export interface SuggestionBridge {
     snapshot: PromptSnapshot,
     requestId: string,
     signal: AbortSignal,
+    onUpdate?: (candidate: SuggestionCandidate) => void,
   ): Promise<SuggestionCandidate | null>;
 }
 
@@ -274,27 +275,42 @@ export class PiSuggestionEditor extends CustomEditor {
     const requestId = `pi-${snapshot.revision}-${++this.requestSequence}`;
 
     try {
+      const publishCandidate = (candidate: SuggestionCandidate): void => {
+        if (this.generation !== controller || controller.signal.aborted) return;
+        if (!this.isCandidateCurrent(candidate, snapshot, requestId)) return;
+        if (
+          this.candidate?.requestId === candidate.requestId &&
+          this.candidate.edit.text === candidate.edit.text
+        ) {
+          return;
+        }
+        this.candidate = candidate;
+        this.candidateSnapshot = snapshot;
+        this.tui.requestRender();
+      };
       const candidate = await this.bridge.suggest(
         snapshot,
         requestId,
         controller.signal,
+        publishCandidate,
       );
       if (this.generation !== controller || controller.signal.aborted) return;
-      this.generation = undefined;
       if (
         !candidate ||
         !this.isCandidateCurrent(candidate, snapshot, requestId)
       ) {
+        this.generation = undefined;
         if (candidate) this.onClear?.("stale");
+        this.clearCandidateForRequest(requestId);
         return;
       }
-      this.candidate = candidate;
-      this.candidateSnapshot = snapshot;
-      this.tui.requestRender();
+      publishCandidate(candidate);
+      this.generation = undefined;
     } catch {
       if (this.generation === controller) {
         this.generation = undefined;
       }
+      this.clearCandidateForRequest(requestId);
       if (!controller.signal.aborted) {
         this.onClear?.("provider-error");
       }
@@ -316,6 +332,13 @@ export class PiSuggestionEditor extends CustomEditor {
       workingDirectory: this.workingDirectory,
       sessionId: this.sessionId,
     });
+  }
+
+  private clearCandidateForRequest(requestId: string): void {
+    if (this.candidate?.requestId !== requestId) return;
+    this.candidate = undefined;
+    this.candidateSnapshot = undefined;
+    this.tui.requestRender();
   }
 
   private reuseMatchingCandidate(

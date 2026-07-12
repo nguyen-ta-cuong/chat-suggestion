@@ -127,6 +127,7 @@ declare module "@earendil-works/pi-ai/compat" {
     readonly signal?: AbortSignal;
     readonly maxTokens?: number;
     readonly temperature?: number;
+    readonly sessionId?: string;
     readonly apiKey?: string;
     readonly headers?: Record<string, string>;
     readonly env?: Record<string, string>;
@@ -138,9 +139,39 @@ declare module "@earendil-works/pi-ai/compat" {
     readonly usage?: { readonly output?: number };
   }
 
+  export type AssistantMessageEvent =
+    | {
+        readonly type: "text_delta";
+        readonly contentIndex: number;
+        readonly delta: string;
+        readonly partial: AssistantMessage;
+      }
+    | {
+        readonly type: "text_end";
+        readonly contentIndex: number;
+        readonly content: string;
+        readonly partial: AssistantMessage;
+      }
+    | {
+        readonly type: "done";
+        readonly reason: string;
+        readonly message: AssistantMessage;
+      }
+    | {
+        readonly type: "error";
+        readonly reason: string;
+        readonly error: AssistantMessage;
+      };
+
   export function completeSimple(
     model: unknown,
     context: { systemPrompt?: string; messages: readonly Message[] },
     options?: CompletionOptions,
   ): Promise<AssistantMessage>;
+
+  export function streamSimple(
+    model: unknown,
+    context: { systemPrompt?: string; messages: readonly Message[] },
+    options?: CompletionOptions,
+  ): AsyncIterable<AssistantMessageEvent>;
 }

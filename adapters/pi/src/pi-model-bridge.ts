@@ -5,7 +5,12 @@ import {
   type PromptSnapshot,
   type SuggestionCandidate,
 } from "@chat-suggestion/protocol";
-import { completeSimple, type Message } from "@earendil-works/pi-ai/compat";
+import {
+  streamSimple,
+  type AssistantMessage,
+  type AssistantMessageEvent,
+  type Message,
+} from "@earendil-works/pi-ai/compat";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { SuggestionBridge } from "./pi-suggestion-editor.js";
 
@@ -16,23 +21,24 @@ const SYSTEM_PROMPT = [
   "Return one plain-text line and keep it under 160 characters.",
 ].join(" ");
 
-type Completion = Awaited<ReturnType<typeof completeSimple>>;
-export type PiModelComplete = (
+export interface PiModelRequestOptions {
+  readonly signal: AbortSignal;
+  readonly maxTokens: number;
+  readonly sessionId?: string;
+  readonly apiKey?: string;
+  readonly headers?: Record<string, string>;
+  readonly env?: Record<string, string>;
+}
+
+export type PiModelStream = (
   model: unknown,
   context: { systemPrompt: string; messages: Message[] },
-  options: {
-    signal: AbortSignal;
-    maxTokens: number;
-    sessionId?: string;
-    apiKey?: string;
-    headers?: Record<string, string>;
-    env?: Record<string, string>;
-  },
-) => Promise<Completion>;
+  options: PiModelRequestOptions,
+) => AsyncIterable<AssistantMessageEvent>;
 
 export interface PiModelBridgeOptions {
   readonly getContext: () => ExtensionContext | undefined;
-  readonly complete?: PiModelComplete;
+  readonly stream?: PiModelStream;
 }
 
 /**
@@ -43,13 +49,14 @@ export interface PiModelBridgeOptions {
 export function createPiModelSuggestionBridge(
   options: PiModelBridgeOptions,
 ): SuggestionBridge {
-  const complete = options.complete ?? completeSimple;
+  const stream = options.stream ?? (streamSimple as PiModelStream);
 
   return {
     async suggest(
       snapshot: PromptSnapshot,
       requestId: string,
       signal: AbortSignal,
+      onUpdate?: (candidate: SuggestionCandidate) => void,
     ): Promise<SuggestionCandidate | null> {
       if (signal.aborted) return null;
 
@@ -69,51 +76,125 @@ export function createPiModelSuggestionBridge(
       // Keep suggestion traffic separate from Pi's agent conversation while
       // still allowing providers to reuse session-scoped transports.
       const suggestionSessionId = `chat-suggestion:${snapshot.sessionId}`;
-      const completion = await complete(
-        context.model,
-        { systemPrompt: SYSTEM_PROMPT, messages: [message] },
-        {
-          signal,
-          maxTokens: 64,
-          sessionId: suggestionSessionId,
-          ...(auth.apiKey === undefined ? {} : { apiKey: auth.apiKey }),
-          ...(auth.headers === undefined ? {} : { headers: auth.headers }),
-          ...(auth.env === undefined ? {} : { env: auth.env }),
-        },
-      );
-      if (signal.aborted || completion.stopReason === "aborted") return null;
+      const request = { systemPrompt: SYSTEM_PROMPT, messages: [message] };
+      const requestOptions = {
+        signal,
+        maxTokens: 64,
+        sessionId: suggestionSessionId,
+        ...(auth.apiKey === undefined ? {} : { apiKey: auth.apiKey }),
+        ...(auth.headers === undefined ? {} : { headers: auth.headers }),
+        ...(auth.env === undefined ? {} : { env: auth.env }),
+      };
 
-      const text = completion.content
-        .filter((part): part is { type: "text"; text: string } => {
-          return part.type === "text" && typeof part.text === "string";
-        })
-        .map((part) => part.text)
-        .join("");
-      const boundedText = sanitizeSuggestionText(text);
-      const suffix = boundedText.startsWith(snapshot.text)
-        ? boundedText.slice(snapshot.text.length)
-        : boundedText;
-      if (
-        suffix.length === 0 ||
-        suffix.includes("\n") ||
-        suffix.includes("\r") ||
-        suffix.includes("\t") ||
-        containsUnsafeTerminalText(suffix)
-      ) {
-        return null;
+      const textParts = new Map<number, string>();
+      let lastPublishedText = "";
+      for await (const event of stream(
+        context.model,
+        request,
+        requestOptions,
+      )) {
+        if (signal.aborted) return null;
+
+        if (event.type === "text_delta") {
+          textParts.set(
+            event.contentIndex,
+            `${textParts.get(event.contentIndex) ?? ""}${event.delta}`,
+          );
+          const candidate = candidateFromText(
+            snapshot,
+            requestId,
+            joinTextParts(textParts),
+            0,
+            true,
+          );
+          if (candidate && candidate.edit.text !== lastPublishedText) {
+            lastPublishedText = candidate.edit.text;
+            onUpdate?.(candidate);
+          }
+          continue;
+        }
+
+        if (event.type === "text_end") {
+          textParts.set(event.contentIndex, event.content);
+          continue;
+        }
+
+        if (event.type === "done") {
+          return candidateFromMessage(snapshot, requestId, event.message);
+        }
+
+        if (event.type === "error") return null;
       }
 
-      return {
-        protocolVersion: PROTOCOL_VERSION,
-        requestId,
-        revision: snapshot.revision,
-        edit: {
-          startByte: snapshot.cursorByte,
-          endByte: snapshot.cursorByte,
-          text: suffix,
-        },
-        tokenCount: completion.usage?.output ?? 0,
-      };
+      return null;
     },
   };
+}
+
+function candidateFromMessage(
+  snapshot: PromptSnapshot,
+  requestId: string,
+  completion: AssistantMessage,
+): SuggestionCandidate | null {
+  const text = completion.content
+    .filter((part): part is { type: "text"; text: string } => {
+      return part.type === "text" && typeof part.text === "string";
+    })
+    .map((part) => part.text)
+    .join("");
+  return candidateFromText(
+    snapshot,
+    requestId,
+    text,
+    completion.usage?.output ?? 0,
+    false,
+  );
+}
+
+function candidateFromText(
+  snapshot: PromptSnapshot,
+  requestId: string,
+  text: string,
+  tokenCount: number,
+  partial: boolean,
+): SuggestionCandidate | null {
+  const boundedText = sanitizeSuggestionText(text);
+  if (
+    partial &&
+    boundedText.length < snapshot.text.length &&
+    snapshot.text.startsWith(boundedText)
+  ) {
+    return null;
+  }
+  const suffix = boundedText.startsWith(snapshot.text)
+    ? boundedText.slice(snapshot.text.length)
+    : boundedText;
+  if (
+    suffix.length === 0 ||
+    suffix.includes("\n") ||
+    suffix.includes("\r") ||
+    suffix.includes("\t") ||
+    containsUnsafeTerminalText(suffix)
+  ) {
+    return null;
+  }
+
+  return {
+    protocolVersion: PROTOCOL_VERSION,
+    requestId,
+    revision: snapshot.revision,
+    edit: {
+      startByte: snapshot.cursorByte,
+      endByte: snapshot.cursorByte,
+      text: suffix,
+    },
+    tokenCount,
+  };
+}
+
+function joinTextParts(parts: ReadonlyMap<number, string>): string {
+  return [...parts.entries()]
+    .sort(([left], [right]) => left - right)
+    .map(([, text]) => text)
+    .join("");
 }

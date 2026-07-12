@@ -42,10 +42,11 @@ billing settings before trying the model-backed path.
 
 The production editor waits 100 ms after the last keystroke before requesting
 a suggestion. It keeps suggestion transport reuse isolated from Pi's agent
-conversation. If you type the beginning of a visible ghost, the remaining text
-shrinks immediately without another model call; a mismatch clears it and starts
-a fresh debounce. The first request and overall speed still depend on the
-selected model, provider, and network.
+conversation and renders each validated provider text chunk instead of waiting
+for the complete response. If you type the beginning of a visible ghost, the
+remaining text shrinks immediately without another model call; a mismatch
+clears it and starts a fresh debounce. The first request and overall speed still
+depend on the selected model, provider, and network.
 
 ### Local development entry
 

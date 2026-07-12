@@ -113,10 +113,12 @@ The package now has a Pi `pi.extensions` entry and uses the model selected in
 Pi. It stays silent when Pi has no selected model or cannot resolve credentials.
 The model-backed editor debounces for 100 ms. Matching a visible ghost prefix
 keeps its untyped remainder immediately without another provider call; a
-mismatch clears it and schedules a new request. Provider transport reuse is kept
-separate from Pi's agent conversation, but cold-request latency still depends on
-the selected model and network. After the package and its public protocol
-dependency are published, install it with Pi's documented package manager:
+mismatch clears it and schedules a new request. Safe text chunks render as they
+arrive instead of waiting for the full response. Provider transport reuse is
+kept separate from Pi's agent conversation, but cold-request latency still
+depends on the selected model and network. After the package and its public
+protocol dependency are published, install it with Pi's documented package
+manager:
 
     pi install npm:@chat-suggestion/adapter-pi
 
