@@ -1,6 +1,6 @@
 {
   "name": "@chat-suggestion/adapter-pi",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Safe inline prompt suggestions for the Pi coding agent",
   "type": "module",
   "publishConfig": {
