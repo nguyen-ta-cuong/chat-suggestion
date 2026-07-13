@@ -1,27 +1,65 @@
 {
-  "name": "chat-suggestion",
-  "version": "0.0.0",
-  "private": true,
+  "name": "@chat-suggestion/pi",
+  "version": "0.1.0",
+  "description": "Safe inline prompt suggestions for the Pi coding agent",
   "type": "module",
+  "license": "MIT",
+  "author": "Cuong Nguyen",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nguyen-ta-cuong/chat-suggestion.git"
+  },
+  "bugs": {
+    "url": "https://github.com/nguyen-ta-cuong/chat-suggestion/issues"
+  },
+  "homepage": "https://github.com/nguyen-ta-cuong/chat-suggestion#readme",
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "inline-completion",
+    "ghost-text"
+  ],
   "engines": {
     "node": ">=20"
   },
-  "workspaces": [
-    "packages/*",
-    "adapters/*",
-    "apps/*",
-    "fixtures/*"
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "LICENSE",
+    "README.md"
   ],
+  "pi": {
+    "extensions": [
+      "./src/production-extension.ts"
+    ]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*"
+  },
   "scripts": {
-    "chat-suggest": "node apps/chat-suggest/dist/cli.js",
+    "build": "tsc -p tsconfig.build.json",
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run test:package && npm run docs:check",
+    "docs:check": "node --test docs/test/documentation.test.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "lint": "npm run build && eslint .",
-    "typecheck": "npm run build && npm run typecheck --workspaces --if-present && tsc -p tests/e2e/tsconfig.json --noEmit",
-    "build": "npm run build --workspace @chat-suggestion/protocol && npm run build --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present && vitest run tests/e2e"
+    "lint": "eslint .",
+    "prepack": "npm run build",
+    "test": "vitest run --config vitest.config.ts",
+    "test:package": "npm run build && node scripts/verify-package.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
+    "@earendil-works/pi-ai": "0.80.6",
+    "@earendil-works/pi-coding-agent": "0.80.6",
+    "@earendil-works/pi-tui": "0.80.6",
     "@eslint/js": "^9.31.0",
     "@types/node": "^24.0.14",
     "eslint": "^9.31.0",

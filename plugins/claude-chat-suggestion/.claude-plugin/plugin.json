@@ -1,6 +1,0 @@
-{
-  "name": "chat-suggestion-claude",
-  "version": "0.1.0",
-  "description": "A capability-honest Chat Suggestion workflow skill for Claude Code.",
-  "skills": "./skills/"
-}

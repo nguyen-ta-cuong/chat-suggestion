@@ -4,10 +4,9 @@ coverage/
 package-lock.json
 LICENSE
 
-# Living product documents are formatted only by their owning plans.
-AGENTS.md
-PLANS.md
-PRD.md
+# Human-authored prose is wrapped for readability instead of formatter output.
 README.md
-plans/*.md
-!plans/0001-bootstrap-and-freeze-contracts.md
+CONTRIBUTING.md
+CODE_OF_CONDUCT.md
+SECURITY.md
+docs/**/*.md

@@ -9,6 +9,7 @@
 .env
 .env.*
 !.env.example
+.agents/
 
 # Node.js workspace output
 node_modules/
