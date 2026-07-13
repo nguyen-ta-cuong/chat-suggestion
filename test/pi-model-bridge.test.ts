@@ -187,6 +187,33 @@ describe("Pi model suggestion bridge", () => {
     expect(candidate?.edit.text).toBe(" tests");
   });
 
+  it("keeps the last safe streamed candidate after a provider error", async () => {
+    async function* stream(): AsyncIterable<AssistantMessageEvent> {
+      yield {
+        type: "text_delta",
+        contentIndex: 0,
+        delta: " tests",
+        partial: assistantMessage(" tests"),
+      };
+      yield {
+        type: "error",
+        reason: "error",
+        error: assistantMessage(" tests"),
+      };
+    }
+
+    const candidate = await createPiModelSuggestionBridge({
+      getContext: createContext,
+      stream,
+    }).suggest(
+      createSnapshot("fix auth"),
+      "provider-error-fallback",
+      new AbortController().signal,
+    );
+
+    expect(candidate?.edit.text).toBe(" tests");
+  });
+
   it("projects a full-prompt response to the missing suffix", async () => {
     const candidate = await createPiModelSuggestionBridge({
       getContext: createContext,
