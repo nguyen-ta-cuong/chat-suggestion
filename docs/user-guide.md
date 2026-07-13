@@ -85,15 +85,17 @@ want to disable or enable the installed extension itself.
 
 ## Privacy and provider use
 
-For each eligible edit, the model-backed extension sends the current prompt
-draft to the model provider already selected in Pi. It sends one short system
-instruction and the draft as a user message, with a maximum output request of
-64 tokens.
+For each eligible edit, the model-backed extension sends Pi's active,
+compaction-aware conversation followed by the current prompt draft to the model
+provider already selected in Pi. It sends one short system instruction and
+requests at most 64 output tokens. The active Pi session ID is also forwarded
+to providers that support session affinity.
 
-The extension does not read or send conversation history, repository files,
-Git data, attachments, environment variables, or project instructions. It does
-not log drafts or suggestions. Provider authentication is resolved through Pi;
-the extension does not store credentials.
+Conversation messages can include earlier tool results, file contents,
+attachments, or project instructions already present in Pi's active context.
+The extension does not independently scan repository files or Git data, and it
+does not log drafts or suggestions. Provider authentication is resolved through
+Pi; the extension does not store credentials.
 
 The draft is limited to 8 KiB. Returned suggestions are limited to one line,
 160 Unicode code points, and 1 KiB. Terminal control sequences and invalid

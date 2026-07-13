@@ -11,12 +11,17 @@ import {
   type AssistantMessageEvent,
   type Message,
 } from "@earendil-works/pi-ai/compat";
-import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import {
+  convertToLlm,
+  sessionEntryToContextMessages,
+  type ExtensionContext,
+} from "@earendil-works/pi-coding-agent";
 import type { SuggestionBridge } from "./pi-suggestion-editor.js";
 
 const SYSTEM_PROMPT = [
   "You provide inline prompt completions for a coding-agent editor.",
-  "Return only the short text that should be inserted after the exact draft.",
+  "Use the earlier conversation to infer the user's intent.",
+  "The final user message is the exact draft; return only the short text that should be inserted after it.",
   "Do not repeat any part of the draft, add quotes, explain your answer, or use markdown.",
   "Return one plain-text line and keep it under 160 characters.",
 ].join(" ");
@@ -24,6 +29,7 @@ const SYSTEM_PROMPT = [
 export interface PiModelRequestOptions {
   readonly signal: AbortSignal;
   readonly maxTokens: number;
+  readonly sessionId?: string;
   readonly apiKey?: string;
   readonly headers?: Record<string, string>;
   readonly env?: Record<string, string>;
@@ -72,10 +78,17 @@ export function createPiModelSuggestionBridge(
         content: snapshot.text,
         timestamp: Date.now(),
       };
-      const request = { systemPrompt: SYSTEM_PROMPT, messages: [message] };
+      const conversationMessages = context.sessionManager
+        .buildContextEntries()
+        .flatMap((entry) => sessionEntryToContextMessages(entry));
+      const request = {
+        systemPrompt: SYSTEM_PROMPT,
+        messages: [...convertToLlm(conversationMessages), message],
+      };
       const requestOptions = {
         signal,
         maxTokens: 64,
+        sessionId: context.sessionManager.getSessionId(),
         ...(auth.apiKey === undefined ? {} : { apiKey: auth.apiKey }),
         ...(auth.headers === undefined ? {} : { headers: auth.headers }),
         ...(auth.env === undefined ? {} : { env: auth.env }),
