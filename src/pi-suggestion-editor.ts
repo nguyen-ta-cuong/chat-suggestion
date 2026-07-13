@@ -34,7 +34,7 @@ export const PI_NATIVE_CAPABILITIES: AdapterCapabilities = Object.freeze({
 });
 
 export const DEFAULT_DEBOUNCE_MS = 250;
-const MINIMUM_DRAFT_CHARACTERS = 3;
+export const DEFAULT_MINIMUM_DRAFT_CHARACTERS = 3;
 
 export interface SuggestionBridge {
   suggest(
@@ -50,6 +50,7 @@ export interface PiEditorOptions {
   readonly keybindings: KeybindingsManager;
   readonly styleDim: (text: string) => string;
   readonly debounceMs?: number;
+  readonly minimumDraftCharacters?: number;
   readonly enabled?: boolean;
   readonly onClear?: (reason: ClearReason) => void;
 }
@@ -65,6 +66,7 @@ export class PiSuggestionEditor extends CustomEditor {
   private readonly keybindings: KeybindingsManager;
   private readonly styleDim: (text: string) => string;
   private readonly debounceMs: number;
+  private readonly minimumDraftCharacters: number;
   private readonly onClear: ((reason: ClearReason) => void) | undefined;
   private revision = 0;
   private requestSequence = 0;
@@ -83,6 +85,12 @@ export class PiSuggestionEditor extends CustomEditor {
     this.keybindings = options.keybindings;
     this.styleDim = options.styleDim;
     this.debounceMs = options.debounceMs ?? DEFAULT_DEBOUNCE_MS;
+    this.minimumDraftCharacters = Math.max(
+      0,
+      Math.floor(
+        options.minimumDraftCharacters ?? DEFAULT_MINIMUM_DRAFT_CHARACTERS,
+      ),
+    );
     this.enabled = options.enabled ?? true;
     this.onClear = options.onClear;
   }
@@ -250,7 +258,7 @@ export class PiSuggestionEditor extends CustomEditor {
       !this.enabled ||
       this.disposed ||
       utf8ByteLength(position.text) > MAX_DRAFT_BYTES ||
-      Array.from(position.text.trim()).length < MINIMUM_DRAFT_CHARACTERS ||
+      Array.from(position.text.trim()).length < this.minimumDraftCharacters ||
       !this.isAtLogicalEnd(position)
     )
       return;
