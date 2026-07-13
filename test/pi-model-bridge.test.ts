@@ -19,10 +19,10 @@ describe("Pi model suggestion bridge", () => {
         request: { messages: readonly Message[]; systemPrompt: string },
         options: PiModelRequestOptions & { temperature?: number },
       ) => {
-        expect(request.messages[0]?.content).toBe("fix auth");
+        expect(request.messages.at(-1)?.content).toBe("fix auth");
         expect(request.systemPrompt).toContain("only the short text");
         expect(options.maxTokens).toBe(64);
-        expect(options).not.toHaveProperty("sessionId");
+        expect(options.sessionId).toBe("session-1");
         expect(options).not.toHaveProperty("temperature");
         return streamFromMessage(
           assistantMessage(" tests and add a regression test", 7),
@@ -50,6 +50,47 @@ describe("Pi model suggestion bridge", () => {
         text: " tests and add a regression test",
       },
     });
+    expect(stream).toHaveBeenCalledOnce();
+  });
+
+  it("includes the active compaction-aware conversation before the draft", async () => {
+    const conversation = [
+      sessionMessage("user", "Add login support", "entry-1", null),
+      sessionMessage(
+        "assistant",
+        "I added OAuth login and tests.",
+        "entry-2",
+        "entry-1",
+      ),
+    ];
+    const context = createContext({ ok: true }, conversation);
+    const stream = vi.fn(
+      (
+        _model: unknown,
+        request: { messages: readonly Message[]; systemPrompt: string },
+      ) => {
+        expect(request.messages).toMatchObject([
+          { role: "user", content: "Add login support" },
+          {
+            role: "assistant",
+            content: [{ type: "text", text: "I added OAuth login and tests." }],
+          },
+          { role: "user", content: "now update" },
+        ]);
+        return streamFromMessage(assistantMessage(" the documentation"));
+      },
+    );
+
+    const candidate = await createPiModelSuggestionBridge({
+      getContext: () => context,
+      stream,
+    }).suggest(
+      createSnapshot("now update"),
+      "with-conversation",
+      new AbortController().signal,
+    );
+
+    expect(candidate?.edit.text).toBe(" the documentation");
     expect(stream).toHaveBeenCalledOnce();
   });
 
@@ -152,16 +193,61 @@ describe("Pi model suggestion bridge", () => {
 
 function createContext(
   auth: { ok: true } | { ok: false; error: string } = { ok: true },
+  contextEntries: readonly unknown[] = [],
 ): ExtensionContext {
   return {
     mode: "tui",
     cwd: "/fixture",
-    sessionManager: { getSessionId: () => "session-1" },
+    sessionManager: {
+      getSessionId: () => "session-1",
+      buildContextEntries: () => contextEntries,
+    },
     model: { id: "fixture-model" },
     modelRegistry: {
       getApiKeyAndHeaders: () => Promise.resolve(auth),
     },
     ui: {} as ExtensionContext["ui"],
+  };
+}
+
+function sessionMessage(
+  role: "user" | "assistant",
+  text: string,
+  id: string,
+  parentId: string | null,
+): unknown {
+  const message =
+    role === "user"
+      ? { role, content: text, timestamp: Date.now() }
+      : {
+          role,
+          content: [{ type: "text", text }],
+          api: "openai-responses",
+          provider: "openai",
+          model: "fixture-model",
+          usage: {
+            input: 1,
+            output: 1,
+            cacheRead: 0,
+            cacheWrite: 0,
+            totalTokens: 2,
+            cost: {
+              input: 0,
+              output: 0,
+              cacheRead: 0,
+              cacheWrite: 0,
+              total: 0,
+            },
+          },
+          stopReason: "stop",
+          timestamp: Date.now(),
+        };
+  return {
+    type: "message",
+    id,
+    parentId,
+    timestamp: new Date().toISOString(),
+    message,
   };
 }
 

@@ -73,7 +73,10 @@ function createHarness(
   const context: ExtensionContext = {
     mode,
     cwd: "/fixture",
-    sessionManager: { getSessionId: () => "session-1" },
+    sessionManager: {
+      getSessionId: () => "session-1",
+      buildContextEntries: () => [],
+    },
     modelRegistry: {
       getApiKeyAndHeaders: () =>
         Promise.resolve({ ok: false as const, error: "not configured" }),

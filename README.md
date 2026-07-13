@@ -11,11 +11,12 @@ This project supports [Pi](https://pi.dev/) only.
 
 - Native end-of-line ghost text in Pi's terminal editor.
 - Streaming suggestions from the model already selected in Pi.
+- Active conversation context for more relevant prompt continuations.
 - Tab accepts the current suggestion once; Escape dismisses it.
 - Edits, cursor movement, paste, resize, autocomplete, session changes, and
   stale responses invalidate the suggestion.
 - Model output is bounded and stripped of terminal control sequences.
-- No repository files or conversation history are collected.
+- No independent repository scanning, prompt logging, or telemetry.
 - Suggestions fail closed when Pi cannot provide a safe editor surface.
 
 ## Install

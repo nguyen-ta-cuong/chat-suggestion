@@ -25,6 +25,7 @@ declare module "@earendil-works/pi-tui" {
 }
 
 declare module "@earendil-works/pi-coding-agent" {
+  import type { Message } from "@earendil-works/pi-ai/compat";
   import type { EditorTheme, TUI } from "@earendil-works/pi-tui";
 
   export const VERSION: string;
@@ -71,6 +72,7 @@ declare module "@earendil-works/pi-coding-agent" {
 
   export interface ReadonlySessionManager {
     getSessionId(): string;
+    buildContextEntries(): readonly unknown[];
   }
 
   export interface ExtensionUIContext {
@@ -109,6 +111,9 @@ declare module "@earendil-works/pi-coding-agent" {
       },
     ): void;
   }
+
+  export function sessionEntryToContextMessages(entry: unknown): unknown[];
+  export function convertToLlm(messages: unknown[]): Message[];
 }
 
 declare module "@earendil-works/pi-ai/compat" {

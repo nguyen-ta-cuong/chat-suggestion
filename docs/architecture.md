@@ -41,10 +41,15 @@ replaced silently.
 
 ## Model boundary
 
-The model bridge uses Pi's selected model and credential resolver. It sends the
-draft only, not the active agent conversation or repository context. Output is
-treated as untrusted: ANSI/OSC sequences, control characters, multiline text,
-oversized text, stale identity, and non-insertion edits are rejected.
+The model bridge uses Pi's selected model and credential resolver. It converts
+Pi's active, compaction-aware session entries through Pi's own LLM-message
+conversion, then appends the unsent draft as the final user message. The active
+session ID is forwarded for providers that support session affinity. The
+extension does not independently read repository files or project context.
+
+Output is treated as untrusted: ANSI/OSC sequences, control characters,
+multiline text, oversized text, stale identity, and non-insertion edits are
+rejected.
 
 ## Testing
 
