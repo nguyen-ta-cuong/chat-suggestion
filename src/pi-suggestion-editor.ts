@@ -106,7 +106,7 @@ export class PiSuggestionEditor extends CustomEditor {
     }
   }
 
-  clear(reason: ClearReason): void {
+  clear(reason: ClearReason, requestRender = true): void {
     const hadWork =
       this.candidate !== undefined ||
       this.generation !== undefined ||
@@ -116,7 +116,7 @@ export class PiSuggestionEditor extends CustomEditor {
     this.candidateSnapshot = undefined;
     if (hadWork) {
       this.onClear?.(reason);
-      this.tui.requestRender();
+      if (requestRender) this.tui.requestRender();
     }
   }
 
@@ -209,25 +209,25 @@ export class PiSuggestionEditor extends CustomEditor {
         candidate.requestId,
       )
     ) {
-      this.clear("stale");
+      this.clear("stale", false);
       return lines;
     }
     if (previousWidth !== undefined && previousWidth !== width) {
-      this.clear("resized");
+      this.clear("resized", false);
       return lines;
     }
     if (this.isShowingAutocomplete()) {
-      this.clear("completion-visible");
+      this.clear("completion-visible", false);
       return lines;
     }
     if (!this.isAtLogicalEnd()) {
-      this.clear("cursor-moved");
+      this.clear("cursor-moved", false);
       return lines;
     }
 
     const markerLine = lines.findIndex((line) => line.includes(CURSOR_MARKER));
     if (markerLine < 0) {
-      this.clear("layout-unknown");
+      this.clear("layout-unknown", false);
       return lines;
     }
 
@@ -240,7 +240,7 @@ export class PiSuggestionEditor extends CustomEditor {
       styleDim: this.styleDim,
     });
     if (!decorated) {
-      this.clear("layout-unknown");
+      this.clear("layout-unknown", false);
       return lines;
     }
 
