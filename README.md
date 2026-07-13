@@ -13,8 +13,10 @@ This project supports [Pi](https://pi.dev/) only.
 - Streaming suggestions from the model already selected in Pi.
 - Active conversation context for more relevant prompt continuations.
 - Tab accepts the current suggestion once; Escape dismisses it.
-- Edits, cursor movement, paste, resize, autocomplete, session changes, and
-  stale responses invalidate the suggestion.
+- Matching typed text keeps the remaining suffix; mismatching edits, cursor
+  movement, paste, session changes, and stale responses invalidate it.
+- Resize, focus loss, and native autocomplete temporarily hide a current ghost
+  instead of destroying it; Tab accepts only while a ghost is visibly rendered.
 - Model output is bounded and stripped of terminal control sequences.
 - No independent repository scanning, prompt logging, or telemetry.
 - Suggestions fail closed when Pi cannot provide a safe editor surface.
@@ -32,7 +34,8 @@ pi install npm:@chat-suggestion/adapter-pi
 
 Start a new Pi session and type at the end of a prompt. After a short pause, a
 dim continuation may appear. The extension uses Pi's selected model and
-credentials, so suggestion requests may use provider quota.
+credentials, so suggestion requests may use provider quota. After an update,
+run `/reload` or restart Pi so the running process loads the installed version.
 
 Inside Pi:
 
@@ -42,8 +45,9 @@ Inside Pi:
 /chat-suggest on
 ```
 
-The status command reports whether the native editor is active. Turning the
-extension off immediately clears pending and visible suggestions.
+The status command reports the loaded package version, native editor capability,
+and last privacy-safe clear reason. Turning the extension off immediately clears
+pending and visible suggestions.
 
 To remove the package:
 

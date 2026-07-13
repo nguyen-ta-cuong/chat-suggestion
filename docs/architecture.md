@@ -23,13 +23,15 @@ controller before starting new work.
 
 Streamed and final candidates must match the current request ID, revision,
 draft text, cursor byte offset, and insertion position. The model bridge retains
-the latest validated streamed candidate as a fallback when a terminal provider
-event is invalid, reports an error, or the stream throws. This prevents an
-already-actionable ghost from flashing and disappearing; the same candidate was
-safe to accept while the
-stream was active. The editor repeats freshness checks immediately before
-rendering and immediately before Tab acceptance, so a late result cannot become
-visible or enter a newer draft.
+the latest protocol-valid streamed candidate as a fallback when a terminal
+provider event is invalid, reports an error, or the stream throws. The editor is
+the final last-known-good authority: once it publishes a current partial,
+provider settlement cannot remove that partial. Only an explicit editor
+invalidation or cancellation can revoke it.
+
+The editor repeats freshness checks immediately before rendering and immediately
+before Tab acceptance, so a late result cannot become visible or enter a newer
+draft.
 
 The accepted edit is insertion-only at the current cursor. Replacement edits
 are not supported.
@@ -40,11 +42,13 @@ The editor extends Pi's documented `CustomEditor` and delegates every key it
 does not consume to `super.handleInput`. Ghost text is added only to the array
 returned by `render`; it is never added to `getText()`.
 
-Rendering fails closed when the cursor marker is unknown, autocomplete is open,
-the cursor is not at the logical end, the terminal width changed, or the suffix
-does not fit. A render-time invalidation updates state without requesting a
-redundant second render. A custom editor already installed by another extension
-is never replaced silently.
+Candidate validity and candidate visibility are separate state. Resize, focus
+loss, visible autocomplete, or a line with no room for a ghost can suppress one render without
+destroying a current candidate. The editor recomputes decoration against each
+render width, and Tab acceptance is enabled only after that render visibly
+placed ghost text. Stale text/cursor identity remains a permanent invalidation.
+A custom editor already installed by another extension is never replaced
+silently.
 
 ## Model boundary
 
@@ -55,12 +59,17 @@ session ID is forwarded for providers that support session affinity. The
 extension does not independently read repository files or project context.
 
 Output is treated as untrusted: ANSI/OSC sequences, control characters,
-multiline text, oversized text, stale identity, and non-insertion edits are
-rejected.
+malformed Unicode, multiline text, oversized text, stale identity, and
+non-insertion edits are rejected. Every constructed bridge candidate passes the
+same runtime protocol validator used by the editor. Provider output usage is
+normalized to visible tokens by subtracting reported reasoning tokens, then
+bounded to the protocol limit; provider billing metadata cannot invalidate safe
+visible text.
 
 ## Testing
 
 Unit tests use deterministic bridges and synthetic editor state. They cover
-streaming, cancellation, stale work, Tab/Escape arbitration, autocomplete,
-paste, Unicode width, resize, extension lifecycle, provider failures, and
+streaming settlement, invalid final metadata, cancellation, stale work,
+Tab/Escape arbitration, autocomplete and focus suppression, malformed Unicode,
+Unicode width, resize, extension lifecycle diagnostics, provider failures, and
 package contents. Tests do not require credentials or model requests.

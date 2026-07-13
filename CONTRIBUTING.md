@@ -26,7 +26,7 @@ contributors can agree on scope.
 
 ## Development setup
 
-Install Node.js 20 or newer and npm, then run:
+Install Node.js 22.19.0 or newer and npm, then run:
 
 ```sh
 git clone https://github.com/nguyen-ta-cuong/chat-suggestion.git
@@ -46,7 +46,9 @@ access, a private Pi session, or a paid model request.
 - Abort superseded work and reject it again before render and acceptance.
 - Keep edits insertion-only at the cursor.
 - Delegate every unconsumed key to Pi's native editor.
-- Fail closed on unknown cursor, layout, autocomplete, mode, or editor state.
+- Fail closed on unknown cursor, layout, autocomplete, mode, or editor state:
+  hide the ghost and disable acceptance without treating a transient
+  presentation condition as a permanent candidate invalidation.
 - Treat model output as untrusted terminal text and enforce size limits.
 - Never log raw drafts, suggestions, credentials, headers, or file content.
 
