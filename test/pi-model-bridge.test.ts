@@ -160,6 +160,7 @@ describe("Pi model suggestion bridge", () => {
   it("keeps the last safe streamed candidate when the final message is invalid", async () => {
     const updates: string[] = [];
     async function* stream(): AsyncIterable<AssistantMessageEvent> {
+      await Promise.resolve();
       yield {
         type: "text_delta",
         contentIndex: 0,
@@ -189,6 +190,7 @@ describe("Pi model suggestion bridge", () => {
 
   it("keeps the last safe streamed candidate after a provider error", async () => {
     async function* stream(): AsyncIterable<AssistantMessageEvent> {
+      await Promise.resolve();
       yield {
         type: "text_delta",
         contentIndex: 0,
