@@ -3,12 +3,14 @@
 ## How suggestions behave
 
 Chat Suggestion adds dim text at the logical end of Pi's prompt editor after a
-100 ms typing pause. The text is a visual decoration until you explicitly
-accept it.
+250 ms typing pause once the draft contains at least three non-whitespace
+characters. The text is a visual decoration until you explicitly accept it.
 
 - Press Tab to insert a current suggestion without submitting the prompt.
 - Press Escape to dismiss a current suggestion.
 - Continue typing to keep a matching remainder or request a new suggestion.
+- A validated streamed suggestion stays visible if a later provider event is
+  unusable; only a documented editor invalidation clears it.
 - Move the cursor, paste, resize, open autocomplete, change sessions, submit,
   or start an agent turn to clear the suggestion.
 
@@ -77,8 +79,9 @@ remain local.
 ## Commands
 
 `/chat-suggest` reports whether suggestions are on and whether the native
-end-of-line editor is active. `/chat-suggest off` cancels generation and clears
-the decoration. `/chat-suggest on` enables generation again.
+end-of-line editor is active. The footer status keeps the Tab and Escape controls
+visible while suggestions are enabled. `/chat-suggest off` cancels generation
+and clears the decoration. `/chat-suggest on` enables generation again.
 
 The enabled state lasts for the current Pi process. Use `pi config` when you
 want to disable or enable the installed extension itself.
