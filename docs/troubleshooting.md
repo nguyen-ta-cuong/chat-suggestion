@@ -29,10 +29,11 @@ keystrokes.
 
 ## A suggestion flashes and disappears without input
 
-Update the extension first. Earlier versions rendered a safe streaming partial,
-then removed it when the provider's final event contained a newline, reported an
-error, or otherwise failed validation. The bridge now retains the latest safe
-partial in those cases.
+Builds without the stability fix rendered a safe streaming partial, then
+removed it when the provider's final event contained a newline, reported an
+error, threw, or otherwise failed validation. The current implementation retains
+the latest safe partial in those cases. If an installed package still shows the
+old behavior, update to a release that includes this fix when available.
 
 A fixed-width render can still clear a suggestion for a documented reason:
 terminal resize, native autocomplete opening, unknown cursor layout, session or
