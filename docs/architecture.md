@@ -24,8 +24,9 @@ controller before starting new work.
 Streamed and final candidates must match the current request ID, revision,
 draft text, cursor byte offset, and insertion position. The model bridge retains
 the latest validated streamed candidate as a fallback when a terminal provider
-event is invalid or reports an error. This prevents an already-actionable ghost
-from flashing and disappearing; the same candidate was safe to accept while the
+event is invalid, reports an error, or the stream throws. This prevents an
+already-actionable ghost from flashing and disappearing; the same candidate was
+safe to accept while the
 stream was active. The editor repeats freshness checks immediately before
 rendering and immediately before Tab acceptance, so a late result cannot become
 visible or enter a newer draft.
