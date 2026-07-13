@@ -10,6 +10,7 @@ import {
 } from "./pi-suggestion-editor.js";
 
 const STATUS_KEY = "chat-suggestion";
+const ACTIVE_STATUS = "suggestions: on · Tab accept · Esc dismiss";
 
 export interface PiSuggestionExtensionOptions {
   readonly bridge: SuggestionBridge;
@@ -74,7 +75,7 @@ export function createPiSuggestionExtension(
       downgradeReason = "";
       context.ui.setStatus(
         STATUS_KEY,
-        enabled ? "suggestions: eol-only" : "suggestions: off",
+        enabled ? ACTIVE_STATUS : "suggestions: off",
       );
     };
 
@@ -122,9 +123,7 @@ export function createPiSuggestionExtension(
           activeEditor?.setEnabled(true);
           context.ui.setStatus(
             STATUS_KEY,
-            capability === "eol-only"
-              ? "suggestions: eol-only"
-              : "suggestions: disabled",
+            capability === "eol-only" ? ACTIVE_STATUS : "suggestions: disabled",
           );
           return;
         }

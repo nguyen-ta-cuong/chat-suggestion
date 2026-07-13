@@ -157,6 +157,122 @@ describe("Pi model suggestion bridge", () => {
     expect(candidate?.edit.text).toBe(" tests and add coverage");
   });
 
+  it("keeps the last safe streamed candidate when the final message is invalid", async () => {
+    const updates: string[] = [];
+    async function* stream(): AsyncIterable<AssistantMessageEvent> {
+      await Promise.resolve();
+      yield {
+        type: "text_delta",
+        contentIndex: 0,
+        delta: " tests",
+        partial: assistantMessage(" tests"),
+      };
+      yield {
+        type: "done",
+        reason: "stop",
+        message: assistantMessage(" tests\nexplanation"),
+      };
+    }
+
+    const candidate = await createPiModelSuggestionBridge({
+      getContext: createContext,
+      stream,
+    }).suggest(
+      createSnapshot("fix auth"),
+      "stable-partial",
+      new AbortController().signal,
+      (partial) => updates.push(partial.edit.text),
+    );
+
+    expect(updates).toEqual([" tests"]);
+    expect(candidate?.edit.text).toBe(" tests");
+  });
+
+  it("keeps the last safe streamed candidate after a provider error", async () => {
+    async function* stream(): AsyncIterable<AssistantMessageEvent> {
+      await Promise.resolve();
+      yield {
+        type: "text_delta",
+        contentIndex: 0,
+        delta: " tests",
+        partial: assistantMessage(" tests"),
+      };
+      yield {
+        type: "error",
+        reason: "error",
+        error: assistantMessage(" tests"),
+      };
+    }
+
+    const candidate = await createPiModelSuggestionBridge({
+      getContext: createContext,
+      stream,
+    }).suggest(
+      createSnapshot("fix auth"),
+      "provider-error-fallback",
+      new AbortController().signal,
+    );
+
+    expect(candidate?.edit.text).toBe(" tests");
+  });
+
+  it("keeps the last safe streamed candidate after a thrown stream failure", async () => {
+    async function* stream(): AsyncIterable<AssistantMessageEvent> {
+      await Promise.resolve();
+      yield {
+        type: "text_delta",
+        contentIndex: 0,
+        delta: " tests",
+        partial: assistantMessage(" tests"),
+      };
+      throw new Error("transport failed");
+    }
+
+    const candidate = await createPiModelSuggestionBridge({
+      getContext: createContext,
+      stream,
+    }).suggest(
+      createSnapshot("fix auth"),
+      "thrown-error-fallback",
+      new AbortController().signal,
+    );
+
+    expect(candidate?.edit.text).toBe(" tests");
+  });
+
+  it("does not retain a safe streamed candidate after cancellation", async () => {
+    const controller = new AbortController();
+    const updates: string[] = [];
+    async function* stream(): AsyncIterable<AssistantMessageEvent> {
+      await Promise.resolve();
+      yield {
+        type: "text_delta",
+        contentIndex: 0,
+        delta: " tests",
+        partial: assistantMessage(" tests"),
+      };
+      controller.abort();
+      yield {
+        type: "done",
+        reason: "stop",
+        message: assistantMessage(" tests and coverage"),
+      };
+    }
+
+    const candidate = await createPiModelSuggestionBridge({
+      getContext: createContext,
+      stream,
+    }).suggest(
+      createSnapshot("fix auth"),
+      "cancel-after-partial",
+      controller.signal,
+      (partial) => updates.push(partial.edit.text),
+    );
+
+    expect(updates).toEqual([" tests"]);
+    expect(candidate).toBeNull();
+  });
+
   it("projects a full-prompt response to the missing suffix", async () => {
     const candidate = await createPiModelSuggestionBridge({
       getContext: createContext,

@@ -13,6 +13,7 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_DEBOUNCE_MS,
+  DEFAULT_MINIMUM_DRAFT_CHARACTERS,
   PiSuggestionEditor,
   type SuggestionBridge,
 } from "../src/pi-suggestion-editor.js";
@@ -91,6 +92,26 @@ describe("PiSuggestionEditor public rendering spike", () => {
 
     expect(editor.render(12).join("\n")).not.toContain("tests");
     expect(cleared).toContain("resized");
+  });
+
+  it("does not queue a redundant render while clearing stale layout", async () => {
+    vi.useFakeTimers();
+    const tui = new FakeTui();
+    const editor = new PiSuggestionEditor(tui, theme, {
+      bridge: immediateBridge(" tests"),
+      keybindings: new FakeKeybindings(),
+      styleDim: (text) => `\u001b[2m${text}\u001b[22m`,
+      debounceMs: 1,
+    });
+    editor.focused = true;
+    editor.render(30);
+    editor.handleInput("abc");
+    await vi.runAllTimersAsync();
+    expect(editor.render(30).join("\n")).toContain("tests");
+
+    tui.requestRender.mockClear();
+    expect(editor.render(12).join("\n")).not.toContain("tests");
+    expect(tui.requestRender).not.toHaveBeenCalled();
   });
 });
 
@@ -194,18 +215,33 @@ describe("PiSuggestionEditor key arbitration and freshness", () => {
     expect(editor.render(30).join("\n")).not.toContain("stale");
   });
 
-  it("uses the minimum supported debounce for responsive typing", async () => {
+  it("waits for an intentional pause before requesting a suggestion", async () => {
     vi.useFakeTimers();
     const suggest = vi.fn(() => Promise.resolve(null));
     const editor = createEditor({ suggest }, undefined, null);
 
-    editor.handleInput("a");
+    editor.handleInput("fix");
     await vi.advanceTimersByTimeAsync(DEFAULT_DEBOUNCE_MS - 1);
     expect(suggest).not.toHaveBeenCalled();
 
     await vi.advanceTimersByTimeAsync(1);
     expect(suggest).toHaveBeenCalledOnce();
-    expect(DEFAULT_DEBOUNCE_MS).toBe(100);
+    expect(DEFAULT_DEBOUNCE_MS).toBe(250);
+  });
+
+  it("skips low-signal drafts shorter than three non-whitespace characters", async () => {
+    vi.useFakeTimers();
+    const suggest = vi.fn(() => Promise.resolve(null));
+    const editor = createEditor({ suggest }, undefined, 1, null);
+
+    editor.handleInput("a b");
+    await vi.runAllTimersAsync();
+    expect(suggest).not.toHaveBeenCalled();
+
+    editor.handleInput("c");
+    await vi.runAllTimersAsync();
+    expect(suggest).toHaveBeenCalledOnce();
+    expect(DEFAULT_MINIMUM_DRAFT_CHARACTERS).toBe(3);
   });
 
   it("shrinks a matching visible ghost locally without another model call", async () => {
@@ -402,12 +438,14 @@ function createEditor(
   bridge: SuggestionBridge,
   onClear?: (reason: string) => void,
   debounceMs: number | null = 1,
+  minimumDraftCharacters: number | null = 1,
 ): PiSuggestionEditor {
   return new PiSuggestionEditor(new FakeTui(), theme, {
     bridge,
     keybindings: new FakeKeybindings(),
     styleDim: (text) => `\u001b[2m${text}\u001b[22m`,
     ...(debounceMs === null ? {} : { debounceMs }),
+    ...(minimumDraftCharacters === null ? {} : { minimumDraftCharacters }),
     ...(onClear ? { onClear } : {}),
   });
 }

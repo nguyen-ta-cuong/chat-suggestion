@@ -23,7 +23,23 @@ candidate by design.
 
 If typed characters match the visible suffix, the extension retains the
 remaining text locally. A mismatch cancels the candidate and debounces a new
-request. Slow results from an older revision are discarded.
+request. Slow results from an older revision are discarded. The 250 ms pause and
+three-character minimum keep low-signal requests from flashing between ordinary
+keystrokes.
+
+## A suggestion flashes and disappears without input
+
+Builds without the stability fix rendered a safe streaming partial, then
+removed it when the provider's final event contained a newline, reported an
+error, threw, or otherwise failed validation. The current implementation retains
+the latest safe partial in those cases. If an installed package still shows the
+old behavior, update to a release that includes this fix when available.
+
+A fixed-width render can still clear a suggestion for a documented reason:
+terminal resize, native autocomplete opening, unknown cursor layout, session or
+model change, prompt submission, or agent start. If the issue remains, note the
+prompt shape, model/provider, terminal, whether `/`, `@`, or `#` triggered native
+autocomplete, and whether the terminal resized.
 
 ## Local development fails to resolve Pi
 

@@ -12,6 +12,7 @@ const publicDocuments = [
   "CODE_OF_CONDUCT.md",
   "docs/user-guide.md",
   "docs/architecture.md",
+  "docs/flicker-performance-review.md",
   "docs/privacy.md",
   "docs/troubleshooting.md",
 ];

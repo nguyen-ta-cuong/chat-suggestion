@@ -33,7 +33,8 @@ export const PI_NATIVE_CAPABILITIES: AdapterCapabilities = Object.freeze({
   attachmentReferences: false,
 });
 
-export const DEFAULT_DEBOUNCE_MS = 100;
+export const DEFAULT_DEBOUNCE_MS = 250;
+export const DEFAULT_MINIMUM_DRAFT_CHARACTERS = 3;
 
 export interface SuggestionBridge {
   suggest(
@@ -49,6 +50,7 @@ export interface PiEditorOptions {
   readonly keybindings: KeybindingsManager;
   readonly styleDim: (text: string) => string;
   readonly debounceMs?: number;
+  readonly minimumDraftCharacters?: number;
   readonly enabled?: boolean;
   readonly onClear?: (reason: ClearReason) => void;
 }
@@ -64,6 +66,7 @@ export class PiSuggestionEditor extends CustomEditor {
   private readonly keybindings: KeybindingsManager;
   private readonly styleDim: (text: string) => string;
   private readonly debounceMs: number;
+  private readonly minimumDraftCharacters: number;
   private readonly onClear: ((reason: ClearReason) => void) | undefined;
   private revision = 0;
   private requestSequence = 0;
@@ -82,6 +85,12 @@ export class PiSuggestionEditor extends CustomEditor {
     this.keybindings = options.keybindings;
     this.styleDim = options.styleDim;
     this.debounceMs = options.debounceMs ?? DEFAULT_DEBOUNCE_MS;
+    this.minimumDraftCharacters = Math.max(
+      0,
+      Math.floor(
+        options.minimumDraftCharacters ?? DEFAULT_MINIMUM_DRAFT_CHARACTERS,
+      ),
+    );
     this.enabled = options.enabled ?? true;
     this.onClear = options.onClear;
   }
@@ -97,7 +106,7 @@ export class PiSuggestionEditor extends CustomEditor {
     }
   }
 
-  clear(reason: ClearReason): void {
+  clear(reason: ClearReason, requestRender = true): void {
     const hadWork =
       this.candidate !== undefined ||
       this.generation !== undefined ||
@@ -107,7 +116,7 @@ export class PiSuggestionEditor extends CustomEditor {
     this.candidateSnapshot = undefined;
     if (hadWork) {
       this.onClear?.(reason);
-      this.tui.requestRender();
+      if (requestRender) this.tui.requestRender();
     }
   }
 
@@ -200,25 +209,25 @@ export class PiSuggestionEditor extends CustomEditor {
         candidate.requestId,
       )
     ) {
-      this.clear("stale");
+      this.clear("stale", false);
       return lines;
     }
     if (previousWidth !== undefined && previousWidth !== width) {
-      this.clear("resized");
+      this.clear("resized", false);
       return lines;
     }
     if (this.isShowingAutocomplete()) {
-      this.clear("completion-visible");
+      this.clear("completion-visible", false);
       return lines;
     }
     if (!this.isAtLogicalEnd()) {
-      this.clear("cursor-moved");
+      this.clear("cursor-moved", false);
       return lines;
     }
 
     const markerLine = lines.findIndex((line) => line.includes(CURSOR_MARKER));
     if (markerLine < 0) {
-      this.clear("layout-unknown");
+      this.clear("layout-unknown", false);
       return lines;
     }
 
@@ -231,7 +240,7 @@ export class PiSuggestionEditor extends CustomEditor {
       styleDim: this.styleDim,
     });
     if (!decorated) {
-      this.clear("layout-unknown");
+      this.clear("layout-unknown", false);
       return lines;
     }
 
@@ -249,6 +258,10 @@ export class PiSuggestionEditor extends CustomEditor {
       !this.enabled ||
       this.disposed ||
       utf8ByteLength(position.text) > MAX_DRAFT_BYTES ||
+      !hasMinimumNonWhitespaceCharacters(
+        position.text,
+        this.minimumDraftCharacters,
+      ) ||
       !this.isAtLogicalEnd(position)
     )
       return;
@@ -433,6 +446,21 @@ export class PiSuggestionEditor extends CustomEditor {
     this.generation?.abort();
     this.generation = undefined;
   }
+}
+
+function hasMinimumNonWhitespaceCharacters(
+  value: string,
+  minimum: number,
+): boolean {
+  if (minimum <= 0) return true;
+
+  let count = 0;
+  for (const character of value) {
+    if (!/\S/u.test(character)) continue;
+    count += 1;
+    if (count >= minimum) return true;
+  }
+  return false;
 }
 
 function cursorByteOffset(text: string, line: number, col: number): number {
