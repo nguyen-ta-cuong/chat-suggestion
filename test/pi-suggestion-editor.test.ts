@@ -194,18 +194,32 @@ describe("PiSuggestionEditor key arbitration and freshness", () => {
     expect(editor.render(30).join("\n")).not.toContain("stale");
   });
 
-  it("uses the minimum supported debounce for responsive typing", async () => {
+  it("waits for an intentional pause before requesting a suggestion", async () => {
     vi.useFakeTimers();
     const suggest = vi.fn(() => Promise.resolve(null));
     const editor = createEditor({ suggest }, undefined, null);
 
-    editor.handleInput("a");
+    editor.handleInput("fix");
     await vi.advanceTimersByTimeAsync(DEFAULT_DEBOUNCE_MS - 1);
     expect(suggest).not.toHaveBeenCalled();
 
     await vi.advanceTimersByTimeAsync(1);
     expect(suggest).toHaveBeenCalledOnce();
-    expect(DEFAULT_DEBOUNCE_MS).toBe(100);
+    expect(DEFAULT_DEBOUNCE_MS).toBe(250);
+  });
+
+  it("skips low-signal drafts shorter than three non-whitespace characters", async () => {
+    vi.useFakeTimers();
+    const suggest = vi.fn(() => Promise.resolve(null));
+    const editor = createEditor({ suggest });
+
+    editor.handleInput("  a");
+    await vi.runAllTimersAsync();
+    expect(suggest).not.toHaveBeenCalled();
+
+    editor.handleInput("bc");
+    await vi.runAllTimersAsync();
+    expect(suggest).toHaveBeenCalledOnce();
   });
 
   it("shrinks a matching visible ghost locally without another model call", async () => {
