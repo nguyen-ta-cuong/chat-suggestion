@@ -16,12 +16,28 @@ describe("Pi extension lifecycle", () => {
     harness.emit("session_start", harness.context);
     expect(harness.currentFactory()).toBeTypeOf("function");
     expect(harness.statuses.get("chat-suggestion")).toBe(
-      "suggestions: eol-only",
+      "suggestions: on · Tab accept · Esc dismiss",
     );
 
     harness.emit("session_shutdown", harness.context);
     expect(harness.currentFactory()).toBeUndefined();
     expect(harness.statuses.has("chat-suggestion")).toBe(false);
+  });
+
+  it("keeps controls discoverable when suggestions are toggled", () => {
+    const harness = createHarness();
+    createPiSuggestionExtension({
+      bridge: { suggest: () => Promise.resolve(null) },
+    })(harness.api);
+
+    harness.emit("session_start", harness.context);
+    harness.runCommand("chat-suggest", "off");
+    expect(harness.statuses.get("chat-suggestion")).toBe("suggestions: off");
+
+    harness.runCommand("chat-suggest", "on");
+    expect(harness.statuses.get("chat-suggestion")).toBe(
+      "suggestions: on · Tab accept · Esc dismiss",
+    );
   });
 
   it("fails closed when another custom editor already owns the surface", () => {
