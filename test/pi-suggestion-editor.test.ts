@@ -93,6 +93,26 @@ describe("PiSuggestionEditor public rendering spike", () => {
     expect(editor.render(12).join("\n")).not.toContain("tests");
     expect(cleared).toContain("resized");
   });
+
+  it("does not queue a redundant render while clearing stale layout", async () => {
+    vi.useFakeTimers();
+    const tui = new FakeTui();
+    const editor = new PiSuggestionEditor(tui, theme, {
+      bridge: immediateBridge(" tests"),
+      keybindings: new FakeKeybindings(),
+      styleDim: (text) => `\u001b[2m${text}\u001b[22m`,
+      debounceMs: 1,
+    });
+    editor.focused = true;
+    editor.render(30);
+    editor.handleInput("abc");
+    await vi.runAllTimersAsync();
+    expect(editor.render(30).join("\n")).toContain("tests");
+
+    tui.requestRender.mockClear();
+    expect(editor.render(12).join("\n")).not.toContain("tests");
+    expect(tui.requestRender).not.toHaveBeenCalled();
+  });
 });
 
 describe("PiSuggestionEditor key arbitration and freshness", () => {
