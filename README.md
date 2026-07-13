@@ -21,10 +21,12 @@ This project supports [Pi](https://pi.dev/) only.
 ## Install
 
 Review the source before installing because Pi extensions run with your user
-permissions. Then install this repository as a Pi package:
+permissions. Review the package in the
+[Pi package gallery](https://pi.dev/packages/@chat-suggestion/adapter-pi?name=chat-suggestion),
+then install it from npm through Pi:
 
 ```sh
-pi install git:github.com/nguyen-ta-cuong/chat-suggestion
+pi install npm:@chat-suggestion/adapter-pi
 ```
 
 Start a new Pi session and type at the end of a prompt. After a short pause, a
@@ -45,7 +47,7 @@ extension off immediately clears pending and visible suggestions.
 To remove the package:
 
 ```sh
-pi remove git:github.com/nguyen-ta-cuong/chat-suggestion
+pi remove npm:@chat-suggestion/adapter-pi
 ```
 
 See the [user guide](docs/user-guide.md) for local installation, an offline

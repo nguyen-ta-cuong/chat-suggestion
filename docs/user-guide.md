@@ -24,23 +24,24 @@ autocomplete always has priority over suggestion acceptance.
 The extension does not run in Pi's print, JSON, or RPC modes. It also disables
 itself when another extension already owns Pi's custom editor.
 
-## Install from Git
+## Install from the Pi package gallery
 
-Pi packages execute with your user permissions. Inspect the repository and its
-dependencies before installation.
+Pi packages execute with your user permissions. Inspect the
+[package listing](https://pi.dev/packages/@chat-suggestion/adapter-pi?name=chat-suggestion),
+source, and dependencies before installation.
 
 ```sh
-pi install git:github.com/nguyen-ta-cuong/chat-suggestion
+pi install npm:@chat-suggestion/adapter-pi
 ```
 
-Restart Pi after installation. Pi records the package in its user settings and
-loads `src/production-extension.ts` from the installed package.
+Restart Pi after installation. Pi records the npm package in its user settings
+and loads the extension declared by the package manifest.
 
 To install only for one project, run the command with Pi's local flag from that
 project:
 
 ```sh
-pi install -l git:github.com/nguyen-ta-cuong/chat-suggestion
+pi install -l npm:@chat-suggestion/adapter-pi
 ```
 
 Project-local packages load only after Pi trusts the project.
@@ -122,7 +123,7 @@ pi update --extensions
 Remove the global package:
 
 ```sh
-pi remove git:github.com/nguyen-ta-cuong/chat-suggestion
+pi remove npm:@chat-suggestion/adapter-pi
 ```
 
 For a project-local installation, run the same command with `-l` from that
