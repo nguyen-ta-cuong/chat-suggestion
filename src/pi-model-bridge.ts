@@ -95,7 +95,7 @@ export function createPiModelSuggestionBridge(
       };
 
       const textParts = new Map<number, string>();
-      let lastPublishedText = "";
+      let lastSafeCandidate: SuggestionCandidate | null = null;
       for await (const event of stream(
         context.model,
         request,
@@ -115,8 +115,11 @@ export function createPiModelSuggestionBridge(
             0,
             true,
           );
-          if (candidate && candidate.edit.text !== lastPublishedText) {
-            lastPublishedText = candidate.edit.text;
+          if (
+            candidate &&
+            candidate.edit.text !== lastSafeCandidate?.edit.text
+          ) {
+            lastSafeCandidate = candidate;
             onUpdate?.(candidate);
           }
           continue;
@@ -128,13 +131,16 @@ export function createPiModelSuggestionBridge(
         }
 
         if (event.type === "done") {
-          return candidateFromMessage(snapshot, requestId, event.message);
+          return (
+            candidateFromMessage(snapshot, requestId, event.message) ??
+            lastSafeCandidate
+          );
         }
 
-        if (event.type === "error") return null;
+        if (event.type === "error") return lastSafeCandidate;
       }
 
-      return null;
+      return lastSafeCandidate;
     },
   };
 }
