@@ -50,10 +50,13 @@ try {
     readFileSync(join(installedPackage, "package.json"), "utf8"),
   );
   if (
+    manifest.name !== "@chat-suggestion/adapter-pi" ||
     manifest.private ||
     !manifest.pi?.extensions?.includes("./src/production-extension.ts")
   ) {
-    throw new Error("installed package is not public or lacks its Pi entry");
+    throw new Error(
+      "installed package has the wrong identity, is private, or lacks its Pi entry",
+    );
   }
 
   console.log(`verified ${manifest.name}@${manifest.version}`);
