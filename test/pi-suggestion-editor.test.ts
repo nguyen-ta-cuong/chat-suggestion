@@ -13,6 +13,7 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_DEBOUNCE_MS,
+  DEFAULT_MINIMUM_DRAFT_CHARACTERS,
   PiSuggestionEditor,
   type SuggestionBridge,
 } from "../src/pi-suggestion-editor.js";
@@ -211,7 +212,7 @@ describe("PiSuggestionEditor key arbitration and freshness", () => {
   it("skips low-signal drafts shorter than three non-whitespace characters", async () => {
     vi.useFakeTimers();
     const suggest = vi.fn(() => Promise.resolve(null));
-    const editor = createEditor({ suggest });
+    const editor = createEditor({ suggest }, undefined, 1, null);
 
     editor.handleInput("  a");
     await vi.runAllTimersAsync();
@@ -220,6 +221,7 @@ describe("PiSuggestionEditor key arbitration and freshness", () => {
     editor.handleInput("bc");
     await vi.runAllTimersAsync();
     expect(suggest).toHaveBeenCalledOnce();
+    expect(DEFAULT_MINIMUM_DRAFT_CHARACTERS).toBe(3);
   });
 
   it("shrinks a matching visible ghost locally without another model call", async () => {
@@ -416,12 +418,14 @@ function createEditor(
   bridge: SuggestionBridge,
   onClear?: (reason: string) => void,
   debounceMs: number | null = 1,
+  minimumDraftCharacters: number | null = 1,
 ): PiSuggestionEditor {
   return new PiSuggestionEditor(new FakeTui(), theme, {
     bridge,
     keybindings: new FakeKeybindings(),
     styleDim: (text) => `\u001b[2m${text}\u001b[22m`,
     ...(debounceMs === null ? {} : { debounceMs }),
+    ...(minimumDraftCharacters === null ? {} : { minimumDraftCharacters }),
     ...(onClear ? { onClear } : {}),
   });
 }
