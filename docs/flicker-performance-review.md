@@ -8,7 +8,7 @@ event even when the user supplied no input. The deterministic sequence was:
 1. The model emitted a safe `text_delta`.
 2. The bridge published it and the editor rendered it immediately.
 3. The terminal `done` message contained a newline or otherwise failed final
-   validation, or the stream ended with an error.
+   validation, or the stream reported or threw an error.
 4. The bridge returned `null`, so the editor removed the candidate for that
    request.
 
@@ -25,7 +25,8 @@ stream defect.
 ## Changes made
 
 - Retain the latest validated streamed candidate when the provider's terminal
-  event is unusable or reports an error. Cancellation still returns no fallback.
+  event is unusable, reports an error, or the stream throws. Cancellation still
+  returns no fallback.
 - Wait 250 ms and require three non-whitespace characters before requesting a
   suggestion. This avoids low-value model calls and between-keystroke flashes.
 - Avoid requesting a second TUI render when the current render already removed
