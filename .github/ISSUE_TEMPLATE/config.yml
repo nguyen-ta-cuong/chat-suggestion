@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions and community support
+    url: https://github.com/nguyen-ta-cuong/chat-suggestion/discussions/categories/q-a
+    about: Ask for help, share workflows, and discuss ideas with the community.
+  - name: Report a security vulnerability
+    url: https://github.com/nguyen-ta-cuong/chat-suggestion/security/policy
+    about: Follow the private reporting instructions in the security policy.

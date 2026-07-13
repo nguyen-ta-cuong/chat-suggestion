@@ -4,14 +4,25 @@ Thank you for helping improve Chat Suggestion for Pi.
 
 ## Before you start
 
-- Search existing issues before opening a new one.
+- Search existing issues and Discussions before opening something new.
 - Keep the project Pi-only and use documented public Pi APIs.
 - For behavior changes, describe the user-visible problem and safety impact.
 - Do not include private prompts, sessions, credentials, or repository content
   in issues, tests, screenshots, or logs.
 
-Small fixes can go directly to a pull request. Discuss large UI or protocol
-changes in an issue first so maintainers and contributors can agree on scope.
+Choose the channel that best fits your contribution:
+
+- Ask usage questions and explore early ideas in
+  [GitHub Discussions](https://github.com/nguyen-ta-cuong/chat-suggestion/discussions).
+- Report a reproducible defect with the bug-report issue form.
+- Submit a concrete improvement with the feature-request issue form.
+- Follow [SECURITY.md](SECURITY.md) for vulnerabilities; do not disclose them in
+  public issues or Discussions.
+
+Blank issues are disabled so reports arrive with enough context to act on.
+Small fixes can go directly to a pull request. Discuss large UI, keybinding,
+provider, or safety changes before implementation so maintainers and
+contributors can agree on scope.
 
 ## Development setup
 

@@ -1,0 +1,78 @@
+name: Feature request
+description: Propose a focused improvement for the Pi extension.
+title: "[Feature]: "
+labels:
+  - enhancement
+  - needs-triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use Discussions for early or open-ended ideas. Open this form when the problem and desired outcome are concrete enough to evaluate.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched issues and Discussions for this request.
+          required: true
+        - label: This request is specifically for the Pi extension.
+          required: true
+        - label:
+            This request preserves explicit acceptance and never auto-submits or
+            executes a suggestion.
+          required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user or contributor problem needs to be solved?
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: Describe observable behavior, not only an implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What existing workflow or simpler approach did you try?
+    validations:
+      required: true
+  - type: dropdown
+    id: impact
+    attributes:
+      label: Primary impact
+      options:
+        - Prompt editing and keybindings
+        - Suggestion quality or latency
+        - Model-provider integration
+        - Installation and configuration
+        - Accessibility and terminal compatibility
+        - Contributor experience
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: safety
+    attributes:
+      label: Safety and compatibility considerations
+      description:
+        Explain effects on stale-result rejection, explicit acceptance, native
+        Pi behavior, privacy, or terminal rendering.
+    validations:
+      required: true
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description:
+        Add sanitized examples, mockups, or links that make the proposal easier
+        to evaluate.
+    validations:
+      required: false
