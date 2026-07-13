@@ -1,7 +1,6 @@
 import {
   PROTOCOL_VERSION,
   MAX_DRAFT_BYTES,
-  containsUnsafeTerminalText,
   parseSuggestionCandidate,
   utf8ByteLength,
   type AdapterCapabilities,
@@ -61,6 +60,11 @@ interface EditorPosition {
   readonly col: number;
 }
 
+interface CurrentCandidateState {
+  readonly candidate: SuggestionCandidate;
+  readonly snapshot: PromptSnapshot;
+}
+
 export class PiSuggestionEditor extends CustomEditor {
   private readonly bridge: SuggestionBridge;
   private readonly keybindings: KeybindingsManager;
@@ -71,11 +75,10 @@ export class PiSuggestionEditor extends CustomEditor {
   private revision = 0;
   private requestSequence = 0;
   private enabled: boolean;
-  private candidate: SuggestionCandidate | undefined;
-  private candidateSnapshot: PromptSnapshot | undefined;
+  private currentCandidate: CurrentCandidateState | undefined;
+  private renderedCandidate: SuggestionCandidate | undefined;
   private generation: AbortController | undefined;
   private debounceTimer: ReturnType<typeof setTimeout> | undefined;
-  private lastRenderWidth?: number;
   private pasteInProgress = false;
   private disposed = false;
 
@@ -108,12 +111,11 @@ export class PiSuggestionEditor extends CustomEditor {
 
   clear(reason: ClearReason, requestRender = true): void {
     const hadWork =
-      this.candidate !== undefined ||
+      this.currentCandidate !== undefined ||
       this.generation !== undefined ||
       this.debounceTimer !== undefined;
     this.cancelPending();
-    this.candidate = undefined;
-    this.candidateSnapshot = undefined;
+    this.resetCandidate();
     if (hadWork) {
       this.onClear?.(reason);
       if (requestRender) this.tui.requestRender();
@@ -127,53 +129,60 @@ export class PiSuggestionEditor extends CustomEditor {
   }
 
   override handleInput(data: string): void {
-    if (this.isShowingAutocomplete()) {
-      this.clear("completion-visible");
-      super.handleInput(data);
+    const autocompleteVisible = this.isShowingAutocomplete();
+    const pasteStarted = data.includes("\u001b[200~");
+    if (pasteStarted) {
+      this.pasteInProgress = true;
+      this.clear("pasted");
+    }
+
+    if (
+      !autocompleteVisible &&
+      this.focused &&
+      this.renderedCandidate &&
+      this.keybindings.matches(data, "tui.input.tab")
+    ) {
+      this.acceptCurrentCandidate(this.renderedCandidate);
       return;
     }
 
-    if (this.candidate && this.keybindings.matches(data, "tui.input.tab")) {
-      this.acceptCurrentCandidate();
-      return;
-    }
-
-    if (this.candidate && this.keybindings.matches(data, "app.interrupt")) {
+    if (
+      !autocompleteVisible &&
+      (this.currentCandidate || this.generation || this.debounceTimer) &&
+      this.keybindings.matches(data, "app.interrupt")
+    ) {
       this.clear("dismissed");
       return;
     }
 
     const before = this.capturePosition();
-    const candidateBeforeEdit = this.candidate;
-    const candidateSnapshotBeforeEdit = this.candidateSnapshot;
+    const stateBeforeInput = this.currentCandidate;
+    const candidateBeforeEdit = stateBeforeInput?.candidate;
+    const hadWorkBeforeInput =
+      stateBeforeInput !== undefined ||
+      this.generation !== undefined ||
+      this.debounceTimer !== undefined;
     const candidateWasCurrent = Boolean(
-      candidateBeforeEdit &&
-      candidateSnapshotBeforeEdit &&
+      stateBeforeInput &&
       this.isCandidateCurrent(
-        candidateBeforeEdit,
-        candidateSnapshotBeforeEdit,
-        candidateBeforeEdit.requestId,
+        stateBeforeInput.candidate,
+        stateBeforeInput.snapshot,
+        stateBeforeInput.candidate.requestId,
       ),
     );
     const isPasteInput =
-      this.pasteInProgress ||
-      data.includes("\u001b[200~") ||
-      data.includes("\u001b[201~");
-    if (data.includes("\u001b[200~")) {
-      this.pasteInProgress = true;
-    }
-    this.cancelPending();
-    this.candidate = undefined;
-    this.candidateSnapshot = undefined;
+      this.pasteInProgress || pasteStarted || data.includes("\u001b[201~");
+
     super.handleInput(data);
-    if (data.includes("\u001b[201~")) {
-      this.pasteInProgress = false;
-    }
+    if (data.includes("\u001b[201~")) this.pasteInProgress = false;
     const after = this.capturePosition();
 
     if (before.text !== after.text) {
+      this.cancelPending();
+      this.resetCandidate();
       this.revision += 1;
-      this.onClear?.("edited");
+      if (hadWorkBeforeInput)
+        this.onClear?.(isPasteInput ? "pasted" : "edited");
       if (!isPasteInput) {
         if (
           candidateWasCurrent &&
@@ -188,38 +197,25 @@ export class PiSuggestionEditor extends CustomEditor {
     }
 
     if (before.line !== after.line || before.col !== after.col) {
-      this.onClear?.("cursor-moved");
+      this.cancelPending();
+      this.resetCandidate();
+      if (hadWorkBeforeInput) this.onClear?.("cursor-moved");
       this.tui.requestRender();
     }
   }
 
   override render(width: number): string[] {
-    const previousWidth = this.lastRenderWidth;
-    this.lastRenderWidth = width;
     const lines = super.render(width);
+    this.renderedCandidate = undefined;
 
-    const candidate = this.candidate;
-    const candidateSnapshot = this.candidateSnapshot;
-    if (!candidate) return lines;
-    if (
-      !candidateSnapshot ||
-      !this.isCandidateCurrent(
-        candidate,
-        candidateSnapshot,
-        candidate.requestId,
-      )
-    ) {
+    const state = this.currentCandidate;
+    if (!state) return lines;
+    const { candidate, snapshot } = state;
+    if (!this.isCandidateCurrent(candidate, snapshot, candidate.requestId)) {
       this.clear("stale", false);
       return lines;
     }
-    if (previousWidth !== undefined && previousWidth !== width) {
-      this.clear("resized", false);
-      return lines;
-    }
-    if (this.isShowingAutocomplete()) {
-      this.clear("completion-visible", false);
-      return lines;
-    }
+    if (this.isShowingAutocomplete()) return lines;
     if (!this.isAtLogicalEnd()) {
       this.clear("cursor-moved", false);
       return lines;
@@ -227,7 +223,7 @@ export class PiSuggestionEditor extends CustomEditor {
 
     const markerLine = lines.findIndex((line) => line.includes(CURSOR_MARKER));
     if (markerLine < 0) {
-      this.clear("layout-unknown", false);
+      if (this.focused) this.clear("layout-unknown", false);
       return lines;
     }
 
@@ -239,12 +235,10 @@ export class PiSuggestionEditor extends CustomEditor {
       width,
       styleDim: this.styleDim,
     });
-    if (!decorated) {
-      this.clear("layout-unknown", false);
-      return lines;
-    }
+    if (!decorated) return lines;
 
     lines[markerLine] = decorated;
+    this.renderedCandidate = candidate;
     return lines;
   }
 
@@ -282,13 +276,12 @@ export class PiSuggestionEditor extends CustomEditor {
         if (this.generation !== controller || controller.signal.aborted) return;
         if (!this.isCandidateCurrent(candidate, snapshot, requestId)) return;
         if (
-          this.candidate?.requestId === candidate.requestId &&
-          this.candidate.edit.text === candidate.edit.text
+          this.currentCandidate?.candidate.requestId === candidate.requestId &&
+          this.currentCandidate.candidate.edit.text === candidate.edit.text
         ) {
           return;
         }
-        this.candidate = candidate;
-        this.candidateSnapshot = snapshot;
+        this.currentCandidate = { candidate, snapshot };
         this.tui.requestRender();
       };
       const candidate = await this.bridge.suggest(
@@ -302,7 +295,12 @@ export class PiSuggestionEditor extends CustomEditor {
         !candidate ||
         !this.isCandidateCurrent(candidate, snapshot, requestId)
       ) {
+        const retainedPartial = this.hasCurrentCandidateForRequest(
+          snapshot,
+          requestId,
+        );
         this.generation = undefined;
+        if (retainedPartial) return;
         if (candidate) this.onClear?.("stale");
         this.clearCandidateForRequest(requestId);
         return;
@@ -310,13 +308,15 @@ export class PiSuggestionEditor extends CustomEditor {
       publishCandidate(candidate);
       this.generation = undefined;
     } catch {
-      if (this.generation === controller) {
-        this.generation = undefined;
-      }
+      if (this.generation !== controller || controller.signal.aborted) return;
+      const retainedPartial = this.hasCurrentCandidateForRequest(
+        snapshot,
+        requestId,
+      );
+      this.generation = undefined;
+      if (retainedPartial) return;
       this.clearCandidateForRequest(requestId);
-      if (!controller.signal.aborted) {
-        this.onClear?.("provider-error");
-      }
+      this.onClear?.("provider-error");
     }
   }
 
@@ -333,10 +333,20 @@ export class PiSuggestionEditor extends CustomEditor {
     });
   }
 
+  private hasCurrentCandidateForRequest(
+    snapshot: PromptSnapshot,
+    requestId: string,
+  ): boolean {
+    const state = this.currentCandidate;
+    return (
+      state?.snapshot === snapshot &&
+      this.isCandidateCurrent(state.candidate, state.snapshot, requestId)
+    );
+  }
+
   private clearCandidateForRequest(requestId: string): void {
-    if (this.candidate?.requestId !== requestId) return;
-    this.candidate = undefined;
-    this.candidateSnapshot = undefined;
+    if (this.currentCandidate?.candidate.requestId !== requestId) return;
+    this.resetCandidate();
     this.tui.requestRender();
   }
 
@@ -360,17 +370,20 @@ export class PiSuggestionEditor extends CustomEditor {
 
     const snapshot = this.createSnapshot(after);
     const requestId = `pi-reuse-${snapshot.revision}-${++this.requestSequence}`;
-    this.candidate = {
-      ...candidate,
-      requestId,
-      revision: snapshot.revision,
-      edit: {
-        startByte: snapshot.cursorByte,
-        endByte: snapshot.cursorByte,
-        text: remainingText,
+    this.currentCandidate = {
+      candidate: {
+        ...candidate,
+        requestId,
+        revision: snapshot.revision,
+        edit: {
+          startByte: snapshot.cursorByte,
+          endByte: snapshot.cursorByte,
+          text: remainingText,
+        },
       },
+      snapshot,
     };
-    this.candidateSnapshot = snapshot;
+    this.renderedCandidate = undefined;
     this.tui.requestRender();
     return true;
   }
@@ -396,32 +409,27 @@ export class PiSuggestionEditor extends CustomEditor {
       current.col,
     );
     if (currentByte !== snapshot.cursorByte) return false;
-    if (
-      candidate.edit.startByte !== currentByte ||
-      candidate.edit.endByte !== currentByte
-    )
-      return false;
-    const suffix = candidate.edit.text;
     return (
-      suffix.length > 0 &&
-      !suffix.includes("\n") &&
-      !suffix.includes("\r") &&
-      !suffix.includes("\t") &&
-      !containsUnsafeTerminalText(suffix)
+      candidate.edit.startByte === currentByte &&
+      candidate.edit.endByte === currentByte
     );
   }
 
-  private acceptCurrentCandidate(): void {
-    const candidate = this.candidate;
-    const snapshot = this.candidateSnapshot;
-    if (!candidate || !snapshot) return;
-    if (!this.isCandidateCurrent(candidate, snapshot, candidate.requestId)) {
+  private acceptCurrentCandidate(candidate: SuggestionCandidate): void {
+    const state = this.currentCandidate;
+    if (!state) {
+      this.clear("stale");
+      return;
+    }
+    if (
+      state.candidate.requestId !== candidate.requestId ||
+      !this.isCandidateCurrent(candidate, state.snapshot, candidate.requestId)
+    ) {
       this.clear("stale");
       return;
     }
 
-    this.candidate = undefined;
-    this.candidateSnapshot = undefined;
+    this.resetCandidate();
     this.cancelPending();
     this.insertTextAtCursor(candidate.edit.text);
     this.revision += 1;
@@ -436,6 +444,11 @@ export class PiSuggestionEditor extends CustomEditor {
       position.line === finalLine &&
       position.col === (lines[finalLine]?.length ?? 0)
     );
+  }
+
+  private resetCandidate(): void {
+    this.currentCandidate = undefined;
+    this.renderedCandidate = undefined;
   }
 
   private cancelPending(): void {

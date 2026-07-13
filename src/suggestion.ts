@@ -34,7 +34,7 @@ export interface SuggestionCandidate {
     readonly endByte: number;
     readonly text: string;
   };
-  /** Zero while a streamed candidate is partial; otherwise provider-reported. */
+  /** Zero while partial; otherwise normalized, bounded visible-output tokens. */
   readonly tokenCount: number;
 }
 
@@ -42,13 +42,12 @@ export type ClearReason =
   | "accepted"
   | "dismissed"
   | "edited"
+  | "pasted"
   | "cursor-moved"
   | "submitted"
   | "stale"
   | "unsafe"
-  | "completion-visible"
   | "layout-unknown"
-  | "resized"
   | "session-changed"
   | "disabled"
   | "provider-error";
@@ -114,6 +113,7 @@ export function sanitizeSuggestionText(value: string): string {
       continue;
     }
     if (codePoint === 0x0a || codePoint === 0x0d) break;
+    if (codePoint >= 0xd800 && codePoint <= 0xdfff) continue;
     if (codePoint <= 0x1f || codePoint === 0x7f) continue;
     if (codePoint >= 0x80 && codePoint <= 0x9f) continue;
 
@@ -155,10 +155,11 @@ function skipEscapeSequence(value: string, startIndex: number): number {
   return Math.min(startIndex + 1, value.length);
 }
 
-function isWellFormedUnicode(value: string): boolean {
+export function isWellFormedUnicode(value: string): boolean {
   for (let index = 0; index < value.length; index += 1) {
     const codeUnit = value.charCodeAt(index);
     if (codeUnit >= 0xd800 && codeUnit <= 0xdbff) {
+      if (index + 1 >= value.length) return false;
       const nextCodeUnit = value.charCodeAt(index + 1);
       if (nextCodeUnit < 0xdc00 || nextCodeUnit > 0xdfff) return false;
       index += 1;

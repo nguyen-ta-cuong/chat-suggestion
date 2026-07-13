@@ -36,6 +36,20 @@ describe("suggestion safety contract", () => {
     ).toBe(false);
   });
 
+  it("rejects and strips unpaired Unicode surrogates", () => {
+    expect(
+      parseSuggestionCandidate({
+        protocolVersion: PROTOCOL_VERSION,
+        requestId: "malformed-unicode",
+        revision: 1,
+        edit: { startByte: 1, endByte: 1, text: "safe\ud800" },
+        tokenCount: 1,
+      }).ok,
+    ).toBe(false);
+    expect(sanitizeSuggestionText("safe\ud800")).toBe("safe");
+    expect(sanitizeSuggestionText("safe 😀")).toBe("safe 😀");
+  });
+
   it("strips terminal escapes and stops at the first line", () => {
     expect(sanitizeSuggestionText("\u001b[31msafe\u001b[0m\nignored")).toBe(
       "safe",

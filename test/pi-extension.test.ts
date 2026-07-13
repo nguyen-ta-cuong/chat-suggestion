@@ -40,6 +40,42 @@ describe("Pi extension lifecycle", () => {
     );
   });
 
+  it("reports the loaded version and last clear reason without prompt content", () => {
+    const harness = createHarness();
+    createPiSuggestionExtension({
+      bridge: { suggest: () => Promise.resolve(null) },
+      version: "test-version",
+    })(harness.api);
+
+    harness.emit("session_start", harness.context);
+    const factory = harness.currentFactory();
+    if (!factory) throw new Error("editor factory was not installed");
+    const editor = factory(
+      {
+        terminal: { rows: 24, columns: 80 },
+        requestRender: vi.fn(),
+      },
+      {
+        borderColor: (text) => text,
+        selectList: {},
+      },
+      { matches: () => false },
+    );
+    editor.handleInput("abc");
+    harness.runCommand("chat-suggest", "status");
+    expect(harness.notify).toHaveBeenLastCalledWith(
+      "Chat suggestions vtest-version: on; capability native eol-only; last clear none",
+      "info",
+    );
+
+    harness.runCommand("chat-suggest", "off");
+    harness.runCommand("chat-suggest", "status");
+    expect(harness.notify).toHaveBeenLastCalledWith(
+      "Chat suggestions vtest-version: off; capability native eol-only; last clear disabled",
+      "info",
+    );
+  });
+
   it("fails closed when another custom editor already owns the surface", () => {
     const existing = (() => ({})) as unknown as EditorFactory;
     const harness = createHarness(existing);

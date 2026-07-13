@@ -52,6 +52,7 @@ declare module "@earendil-works/pi-coding-agent" {
     onSubmit?: (text: string) => void;
     onChange?: (text: string) => void;
     onEscape?: () => void;
+    onExtensionShortcut?: (data: string) => boolean;
     constructor(tui: TUI, theme: EditorTheme, keybindings: KeybindingsManager);
     handleInput(data: string): void;
     render(width: number): string[];
@@ -141,7 +142,10 @@ declare module "@earendil-works/pi-ai/compat" {
   export interface AssistantMessage {
     readonly content: readonly TextContent[];
     readonly stopReason: string;
-    readonly usage?: { readonly output?: number };
+    readonly usage?: {
+      readonly output?: number;
+      readonly reasoning?: number;
+    };
   }
 
   export type AssistantMessageEvent =

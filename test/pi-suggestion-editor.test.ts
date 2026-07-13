@@ -78,7 +78,7 @@ describe("PiSuggestionEditor public rendering spike", () => {
     },
   );
 
-  it("clears the ghost on resize instead of reusing stale layout", async () => {
+  it("rerenders a current ghost against the new width", async () => {
     vi.useFakeTimers();
     const cleared: string[] = [];
     const editor = createEditor(immediateBridge(" tests"), (reason) =>
@@ -90,11 +90,11 @@ describe("PiSuggestionEditor public rendering spike", () => {
     await vi.runAllTimersAsync();
     expect(editor.render(30).join("\n")).toContain("tests");
 
-    expect(editor.render(12).join("\n")).not.toContain("tests");
-    expect(cleared).toContain("resized");
+    expect(editor.render(12).join("\n")).toContain("tests");
+    expect(cleared).toEqual([]);
   });
 
-  it("does not queue a redundant render while clearing stale layout", async () => {
+  it("suppresses a fully clipped ghost without queueing another render", async () => {
     vi.useFakeTimers();
     const tui = new FakeTui();
     const editor = new PiSuggestionEditor(tui, theme, {
@@ -110,8 +110,63 @@ describe("PiSuggestionEditor public rendering spike", () => {
     expect(editor.render(30).join("\n")).toContain("tests");
 
     tui.requestRender.mockClear();
-    expect(editor.render(12).join("\n")).not.toContain("tests");
+    expect(editor.render(1).join("\n")).not.toContain("tests");
     expect(tui.requestRender).not.toHaveBeenCalled();
+
+    const delegated = vi.fn(() => true);
+    editor.onExtensionShortcut = delegated;
+    editor.handleInput("\t");
+    expect(delegated).toHaveBeenCalledWith("\t");
+    expect(editor.getText()).toBe("abc");
+
+    expect(editor.render(30).join("\n")).toContain("tests");
+    editor.handleInput("\t");
+    expect(editor.getText()).toBe("abc tests");
+  });
+
+  it("temporarily hides a ghost while autocomplete is visible", async () => {
+    vi.useFakeTimers();
+    const cleared: string[] = [];
+    const editor = createEditor(immediateBridge(" tests"), (reason) =>
+      cleared.push(reason),
+    );
+    editor.focused = true;
+    editor.handleInput("a");
+    await vi.runAllTimersAsync();
+    const autocomplete = vi
+      .spyOn(editor, "isShowingAutocomplete")
+      .mockReturnValue(false);
+    expect(editor.render(30).join("\n")).toContain("tests");
+
+    autocomplete.mockReturnValue(true);
+    expect(editor.render(30).join("\n")).not.toContain("tests");
+    editor.handleInput("\u001b");
+    expect(cleared).toEqual([]);
+
+    autocomplete.mockReturnValue(false);
+    expect(editor.render(30).join("\n")).toContain("tests");
+  });
+
+  it("temporarily hides a ghost while the editor is unfocused", async () => {
+    vi.useFakeTimers();
+    const editor = createEditor(immediateBridge(" tests"));
+    editor.focused = true;
+    editor.handleInput("a");
+    await vi.runAllTimersAsync();
+    expect(editor.render(30).join("\n")).toContain("tests");
+
+    editor.focused = false;
+    expect(editor.render(30).join("\n")).not.toContain("tests");
+    const delegated = vi.fn(() => true);
+    editor.onExtensionShortcut = delegated;
+    editor.handleInput("\t");
+    expect(delegated).toHaveBeenCalledWith("\t");
+    expect(editor.getText()).toBe("a");
+
+    editor.focused = true;
+    expect(editor.render(30).join("\n")).toContain("tests");
+    editor.handleInput("\t");
+    expect(editor.getText()).toBe("a tests");
   });
 });
 
@@ -148,7 +203,37 @@ describe("PiSuggestionEditor key arbitration and freshness", () => {
     resolveFinal?.(null);
   });
 
-  it("clears a streamed partial when the final generation fails", async () => {
+  it("accepts the exact rendered partial while a newer stream update awaits render", async () => {
+    vi.useFakeTimers();
+    let publish: ((candidate: SuggestionCandidate) => void) | undefined;
+    let activeSnapshot: PromptSnapshot | undefined;
+    let activeRequestId: string | undefined;
+    const bridge: SuggestionBridge = {
+      suggest(snapshot, requestId, _signal, onUpdate) {
+        activeSnapshot = snapshot;
+        activeRequestId = requestId;
+        publish = onUpdate;
+        onUpdate?.(candidateFor(snapshot, " tests", requestId));
+        return new Promise(() => undefined);
+      },
+    };
+    const editor = createEditor(bridge);
+    editor.focused = true;
+
+    editor.handleInput("a");
+    await vi.advanceTimersByTimeAsync(1);
+    expect(editor.render(30).join("\n")).toContain("tests");
+
+    if (!activeSnapshot || !activeRequestId) {
+      throw new Error("active request was not captured");
+    }
+    publish?.(candidateFor(activeSnapshot, " coverage", activeRequestId));
+    editor.handleInput("\t");
+
+    expect(editor.getText()).toBe("a tests");
+  });
+
+  it("retains a streamed partial when the final generation returns null", async () => {
     vi.useFakeTimers();
     let resolveFinal:
       ((candidate: SuggestionCandidate | null) => void) | undefined;
@@ -174,7 +259,70 @@ describe("PiSuggestionEditor key arbitration and freshness", () => {
 
     resolveFinal?.(null);
     await Promise.resolve();
+    expect(editor.render(30).join("\n")).toContain("tests");
+    expect(editor.render(30).join("\n")).toContain("tests");
+
+    editor.handleInput("\t");
+    expect(editor.getText()).toBe("a tests");
+  });
+
+  it.each(["an invalid final", "a thrown error"] as const)(
+    "retains a streamed partial after %s",
+    async (outcome) => {
+      vi.useFakeTimers();
+      const bridge: SuggestionBridge = {
+        async suggest(snapshot, requestId, _signal, onUpdate) {
+          const partial = candidateFor(snapshot, " tests", requestId);
+          onUpdate?.(partial);
+          await Promise.resolve();
+          if (outcome === "a thrown error") throw new Error("provider failed");
+          return { ...partial, tokenCount: 65 };
+        },
+      };
+      const editor = createEditor(bridge);
+      editor.focused = true;
+
+      editor.handleInput("a");
+      await vi.runAllTimersAsync();
+
+      expect(editor.render(30).join("\n")).toContain("tests");
+      editor.handleInput("\t");
+      expect(editor.getText()).toBe("a tests");
+    },
+  );
+
+  it("clears a visible partial when a later edit cancels its request", async () => {
+    vi.useFakeTimers();
+    let capturedSignal: AbortSignal | undefined;
+    let resolveFinal:
+      ((candidate: SuggestionCandidate | null) => void) | undefined;
+    const bridge: SuggestionBridge = {
+      suggest(snapshot, requestId, signal, onUpdate) {
+        capturedSignal = signal;
+        onUpdate?.(candidateFor(snapshot, " tests", requestId));
+        return new Promise((resolve) => {
+          resolveFinal = resolve;
+        });
+      },
+    };
+    const editor = createEditor(bridge);
+    editor.focused = true;
+    editor.handleInput("a");
+    await vi.advanceTimersByTimeAsync(1);
+    expect(editor.render(30).join("\n")).toContain("tests");
+
+    editor.handleInput("x");
+    expect(capturedSignal?.aborted).toBe(true);
     expect(editor.render(30).join("\n")).not.toContain("tests");
+
+    const lateSnapshot: PromptSnapshot = {
+      revision: 1,
+      text: "a",
+      cursorByte: 1,
+    };
+    resolveFinal?.(candidateFor(lateSnapshot, " late", "pi-1-1"));
+    await Promise.resolve();
+    expect(editor.render(30).join("\n")).not.toContain("late");
   });
 
   it("rejects a partial update from an obsolete prompt revision", async () => {
@@ -291,8 +439,10 @@ describe("PiSuggestionEditor key arbitration and freshness", () => {
   it("accepts once with Tab and delegates later Tab presses", async () => {
     vi.useFakeTimers();
     const editor = createEditor(immediateBridge(" tests"));
+    editor.focused = true;
     editor.handleInput("a");
     await vi.runAllTimersAsync();
+    expect(editor.render(30).join("\n")).toContain("tests");
 
     editor.handleInput("\t");
     expect(editor.getText()).toBe("a tests");
@@ -317,6 +467,21 @@ describe("PiSuggestionEditor key arbitration and freshness", () => {
     expect(cleared).toContain("stale");
   });
 
+  it("cancels debounced generation when Escape dismisses before render", async () => {
+    vi.useFakeTimers();
+    const suggest = vi.fn(() => Promise.resolve(null));
+    const editor = createEditor({ suggest });
+    const onEscape = vi.fn();
+    editor.onEscape = onEscape;
+
+    editor.handleInput("a");
+    editor.handleInput("\u001b");
+    await vi.runAllTimersAsync();
+
+    expect(suggest).not.toHaveBeenCalled();
+    expect(onEscape).not.toHaveBeenCalled();
+  });
+
   it("dismisses the first Escape and delegates the next one", async () => {
     vi.useFakeTimers();
     const editor = createEditor(immediateBridge(" tests"));
@@ -331,20 +496,33 @@ describe("PiSuggestionEditor key arbitration and freshness", () => {
     expect(onEscape).toHaveBeenCalledOnce();
   });
 
-  it("gives native autocomplete priority over ghost acceptance", async () => {
+  it("gives native autocomplete priority without destroying the ghost", async () => {
     vi.useFakeTimers();
     const cleared: string[] = [];
     const editor = createEditor(immediateBridge(" tests"), (reason) =>
       cleared.push(reason),
     );
+    editor.focused = true;
     editor.handleInput("a");
     await vi.runAllTimersAsync();
-    vi.spyOn(editor, "isShowingAutocomplete").mockReturnValue(true);
+    const autocomplete = vi
+      .spyOn(editor, "isShowingAutocomplete")
+      .mockReturnValue(false);
+    expect(editor.render(30).join("\n")).toContain("tests");
 
+    autocomplete.mockReturnValue(true);
+    expect(editor.render(30).join("\n")).not.toContain("tests");
+    const delegated = vi.fn(() => true);
+    editor.onExtensionShortcut = delegated;
     editor.handleInput("\t");
-
+    expect(delegated).toHaveBeenCalledWith("\t");
     expect(editor.getText()).toBe("a");
-    expect(cleared).toContain("completion-visible");
+    expect(cleared).toEqual([]);
+
+    autocomplete.mockReturnValue(false);
+    expect(editor.render(30).join("\n")).toContain("tests");
+    editor.handleInput("\t");
+    expect(editor.getText()).toBe("a tests");
   });
 
   it("delegates bracketed paste without generating from the paste", async () => {
