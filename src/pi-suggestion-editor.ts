@@ -33,7 +33,8 @@ export const PI_NATIVE_CAPABILITIES: AdapterCapabilities = Object.freeze({
   attachmentReferences: false,
 });
 
-export const DEFAULT_DEBOUNCE_MS = 100;
+export const DEFAULT_DEBOUNCE_MS = 250;
+const MINIMUM_DRAFT_CHARACTERS = 3;
 
 export interface SuggestionBridge {
   suggest(
@@ -249,6 +250,7 @@ export class PiSuggestionEditor extends CustomEditor {
       !this.enabled ||
       this.disposed ||
       utf8ByteLength(position.text) > MAX_DRAFT_BYTES ||
+      Array.from(position.text.trim()).length < MINIMUM_DRAFT_CHARACTERS ||
       !this.isAtLogicalEnd(position)
     )
       return;
