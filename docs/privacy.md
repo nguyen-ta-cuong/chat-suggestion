@@ -1,0 +1,39 @@
+# Privacy and security
+
+## Data sent for a suggestion
+
+The production extension sends two text fields through Pi's selected model
+provider:
+
+- a fixed instruction asking for a short insertion-only continuation;
+- the current unsent prompt draft, limited to 8 KiB.
+
+It requests at most 64 output tokens. Provider policies, retention, billing, and
+network routing are determined by the model and credentials selected in Pi.
+
+## Data not collected
+
+The extension does not read or send conversation history, repository files,
+Git state, attachments, project instructions, or arbitrary environment
+variables. It does not write telemetry and does not log prompt or completion
+text. Credentials are requested from Pi's model registry for the active request
+and are not persisted by this extension.
+
+The offline example never calls the model bridge. Avoid pressing Enter during
+that check, because submitting is normal Pi behavior outside this extension.
+
+## Untrusted output
+
+Model output is never executed or submitted. Before rendering, the extension:
+
+- removes terminal escape sequences and control characters;
+- limits output to one line, 160 Unicode code points, and 1 KiB;
+- requires a current request ID and prompt revision;
+- requires an insertion at the current UTF-8 cursor offset.
+
+Any unknown editor, provider, cursor, or layout state clears the suggestion.
+
+## Reporting a vulnerability
+
+Follow [SECURITY.md](../SECURITY.md). Do not include real prompts, credentials,
+provider headers, or private repository content in a public report.
