@@ -1,8 +1,11 @@
 {
-  "name": "@chat-suggestion/pi",
-  "version": "0.1.0",
+  "name": "@chat-suggestion/adapter-pi",
+  "version": "0.1.1",
   "description": "Safe inline prompt suggestions for the Pi coding agent",
   "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
   "license": "MIT",
   "author": "Cuong Nguyen",
   "repository": {
