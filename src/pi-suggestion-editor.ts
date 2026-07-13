@@ -258,7 +258,8 @@ export class PiSuggestionEditor extends CustomEditor {
       !this.enabled ||
       this.disposed ||
       utf8ByteLength(position.text) > MAX_DRAFT_BYTES ||
-      Array.from(position.text.trim()).length < this.minimumDraftCharacters ||
+      countNonWhitespaceCharacters(position.text) <
+        this.minimumDraftCharacters ||
       !this.isAtLogicalEnd(position)
     )
       return;
@@ -443,6 +444,14 @@ export class PiSuggestionEditor extends CustomEditor {
     this.generation?.abort();
     this.generation = undefined;
   }
+}
+
+function countNonWhitespaceCharacters(value: string): number {
+  let count = 0;
+  for (const character of value) {
+    if (/\S/u.test(character)) count += 1;
+  }
+  return count;
 }
 
 function cursorByteOffset(text: string, line: number, col: number): number {
