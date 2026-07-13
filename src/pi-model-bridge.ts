@@ -1,6 +1,8 @@
 import {
+  MAX_SUGGESTION_TOKENS,
   PROTOCOL_VERSION,
-  containsUnsafeTerminalText,
+  isWellFormedUnicode,
+  parseSuggestionCandidate,
   sanitizeSuggestionText,
   type PromptSnapshot,
   type SuggestionCandidate,
@@ -164,7 +166,7 @@ function candidateFromMessage(
     snapshot,
     requestId,
     text,
-    completion.usage?.output ?? 0,
+    visibleTokenCount(completion.usage),
     false,
   );
 }
@@ -176,7 +178,13 @@ function candidateFromText(
   tokenCount: number,
   partial: boolean,
 ): SuggestionCandidate | null {
-  if (text.includes("\n") || text.includes("\r")) return null;
+  if (
+    text.includes("\n") ||
+    text.includes("\r") ||
+    !isWellFormedUnicode(text)
+  ) {
+    return null;
+  }
   const boundedText = sanitizeSuggestionText(text);
   if (
     partial &&
@@ -188,17 +196,7 @@ function candidateFromText(
   const suffix = boundedText.startsWith(snapshot.text)
     ? boundedText.slice(snapshot.text.length)
     : boundedText;
-  if (
-    suffix.length === 0 ||
-    suffix.includes("\n") ||
-    suffix.includes("\r") ||
-    suffix.includes("\t") ||
-    containsUnsafeTerminalText(suffix)
-  ) {
-    return null;
-  }
-
-  return {
+  const candidate: SuggestionCandidate = {
     protocolVersion: PROTOCOL_VERSION,
     requestId,
     revision: snapshot.revision,
@@ -209,6 +207,24 @@ function candidateFromText(
     },
     tokenCount,
   };
+  const parsed = parseSuggestionCandidate(candidate);
+  return parsed.ok ? parsed.value : null;
+}
+
+function visibleTokenCount(
+  usage: AssistantMessage["usage"] | undefined,
+): number {
+  const output = nonNegativeSafeInteger(usage?.output) ?? 0;
+  const reasoning = nonNegativeSafeInteger(usage?.reasoning);
+  const visibleOutput =
+    reasoning === undefined ? output : Math.max(0, output - reasoning);
+  return Math.min(visibleOutput, MAX_SUGGESTION_TOKENS);
+}
+
+function nonNegativeSafeInteger(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0
+    ? value
+    : undefined;
 }
 
 function joinTextParts(parts: ReadonlyMap<number, string>): string {

@@ -30,12 +30,17 @@ that check, because submitting is normal Pi behavior outside this extension.
 
 Model output is never executed or submitted. Before rendering, the extension:
 
-- removes terminal escape sequences and control characters;
+- removes terminal escape sequences and control characters, and rejects
+  malformed Unicode;
 - limits output to one line, 160 Unicode code points, and 1 KiB;
 - requires a current request ID and prompt revision;
 - requires an insertion at the current UTF-8 cursor offset.
 
-Any unknown editor, provider, cursor, or layout state clears the suggestion.
+Unknown prompt or cursor identity clears the suggestion. A transient layout,
+focus, no-room layout, or autocomplete state suppresses rendering and Tab acceptance
+without making stale text actionable. `/chat-suggest` reports only version,
+capability, and a clear-reason label; it never includes prompt or completion
+text.
 
 ## Reporting a vulnerability
 

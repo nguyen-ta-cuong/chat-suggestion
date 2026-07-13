@@ -9,16 +9,20 @@ characters. The text is a visual decoration until you explicitly accept it.
 - Press Tab to insert a current suggestion without submitting the prompt.
 - Press Escape to dismiss a current suggestion.
 - Continue typing to keep a matching remainder or request a new suggestion.
-- A validated streamed suggestion stays visible if a later provider event is
-  unusable; only a documented editor invalidation clears it.
-- Move the cursor, paste, resize, open autocomplete, change sessions, submit,
-  or start an agent turn to clear the suggestion.
+- A validated streamed suggestion remains available if final provider metadata
+  is invalid, generation returns no final candidate, or the provider fails.
+- Move the cursor, paste, change sessions, submit, or start an agent turn to
+  clear the suggestion.
+- Resize, focus loss, a line with no room for a ghost, or native autocomplete temporarily hides
+  the ghost without destroying it. Tab accepts a suggestion only while a ghost
+  is visibly rendered.
 
 When no suggestion is visible, all keys retain Pi's normal behavior. Native
 autocomplete always has priority over suggestion acceptance.
 
 ## Requirements
 
+- Chat Suggestion 0.1.3 or newer for monotonic streamed suggestions.
 - Pi 0.80.6 or newer.
 - A model selected and authenticated in Pi for live suggestions.
 - A terminal session running Pi in interactive TUI mode.
@@ -37,7 +41,9 @@ pi install npm:@chat-suggestion/adapter-pi
 ```
 
 Restart Pi after installation. Pi records the npm package in its user settings
-and loads the extension declared by the package manifest.
+and loads the extension declared by the package manifest. Updating files on disk
+does not replace an extension that is already running; use `/reload` or restart
+Pi after every update.
 
 To install only for one project, run the command with Pi's local flag from that
 project:
@@ -78,10 +84,11 @@ remain local.
 
 ## Commands
 
-`/chat-suggest` reports whether suggestions are on and whether the native
-end-of-line editor is active. The footer status keeps the Tab and Escape controls
-visible while suggestions are enabled. `/chat-suggest off` cancels generation
-and clears the decoration. `/chat-suggest on` enables generation again.
+`/chat-suggest` reports the loaded package version, whether suggestions are on,
+whether the native end-of-line editor is active, and the last privacy-safe clear
+reason. The footer status keeps the Tab and Escape controls visible while
+suggestions are enabled. `/chat-suggest off` cancels generation and clears the
+decoration. `/chat-suggest on` enables generation again.
 
 The enabled state lasts for the current Pi process. Use `pi config` when you
 want to disable or enable the installed extension itself.
@@ -108,10 +115,10 @@ See [privacy and security](privacy.md) for the complete data flow.
 
 ## Compatibility limits
 
-The extension renders only at the logical end of a prompt and only when the
-ghost fits safely on the current visual line. It clears on a width change rather
-than attempting to reuse stale layout. Multiline prompts are supported only
-when the cursor is at the end of the final logical line.
+The extension renders only at the logical end of a prompt. It recomputes the
+decoration after a width change and temporarily hides it when the line cannot
+show any ghost text. Multiline prompts are supported only when the cursor is at
+the end of the final logical line.
 
 Pi currently exposes one custom editor owner. If another extension already set
 one, Chat Suggestion leaves it untouched and reports an editor conflict. Remove
@@ -124,6 +131,10 @@ Update all installed Pi packages:
 ```sh
 pi update --extensions
 ```
+
+Then run `/reload` inside Pi or restart it. Run `/chat-suggest` and confirm the
+loaded version is 0.1.3 or newer; the installed files and the active process can
+otherwise differ.
 
 Remove the global package:
 

@@ -2,35 +2,45 @@
 
 ## Symptom and root cause
 
-A suggestion could appear as dim ghost text and disappear on the next provider
-event even when the user supplied no input. The deterministic sequence was:
+A suggestion could appear as dim ghost text and disappear on a later provider or
+render event even when the user supplied no input. Version 0.1.2 retained a safe
+partial for known `null` and error endings, but two destructive boundaries
+remained:
 
-1. The model emitted a safe `text_delta`.
-2. The bridge published it and the editor rendered it immediately.
-3. The terminal `done` message contained a newline or otherwise failed final
-   validation, or the stream reported or threw an error.
-4. The bridge returned `null`, so the editor removed the candidate for that
-   request.
+1. The model emitted a safe `text_delta`, which the editor rendered.
+2. A non-null final candidate copied raw `usage.output`. Pi includes reported
+   reasoning tokens in this value, so it could exceed the 64-token candidate
+   protocol even when the visible text was short.
+3. The bridge preferred that non-null but protocol-invalid final candidate over
+   its valid partial.
+4. The editor rejected the final candidate and removed the already-visible
+   partial. The editor also removed the partial when any bridge returned `null`
+   or threw.
 
-The candidate was already safe, current, and available for Tab acceptance in
-step 2. Removing it in step 4 added no safety boundary; it only produced a
-visible flash. A regression test now drives the real bridge through a safe
-partial followed by an invalid final message.
+A direct 0.1.2 reproduction showed the ghost visible during streaming and gone
+after a same-text final candidate with `tokenCount: 65`. Removing a previously
+validated partial added no safety boundary; it only produced the flash.
 
-Native autocomplete opening asynchronously, a terminal width change, loss of a
-known cursor layout, a session or model transition, submission, and agent start
-remain intentional invalidation paths. These are separate from the provider
-stream defect.
+Rendering also conflated candidate validity with presentation. Async native
+autocomplete, focus loss, no-room layouts, or terminal width changes could
+permanently clear current state during a non-input render.
 
 ## Changes made
 
-- Retain the latest validated streamed candidate when the provider's terminal
-  event is unusable, reports an error, or the stream throws. Cancellation still
-  returns no fallback.
+- Make published partials monotonic for an active request. `null`, invalid final
+  metadata, and non-abort failures retain the last-known-good partial; explicit
+  cancellation and editor invalidation still clear it.
+- Validate every bridge candidate with the shared runtime protocol before
+  publishing or returning it, and drop malformed Unicode.
+- Normalize provider usage to visible output tokens by subtracting valid
+  reasoning usage and bounding the result to the protocol maximum.
+- Separate validity from presentation. Resize reflows against the new width;
+  autocomplete, focus loss, and no-room layouts temporarily suppress the ghost. Tab
+  accepts only a candidate visibly placed by the latest render.
 - Wait 250 ms and require three non-whitespace characters before requesting a
-  suggestion. This avoids low-value model calls and between-keystroke flashes.
-- Avoid requesting a second TUI render when the current render already removed
-  a stale decoration.
+  suggestion, avoiding low-value calls and between-keystroke flashes.
+- Report the loaded package version and last privacy-safe clear reason through
+  `/chat-suggest`; no prompt or suggestion content is recorded.
 - Show `Tab accept` and `Esc dismiss` in the active footer status so the controls
   are discoverable without opening the user guide.
 
@@ -51,10 +61,10 @@ implementation:
    is unchanged across edits to one draft. Reusing the converted LLM messages
    can reduce CPU and allocation work, but cache invalidation must use a public
    Pi session identity API.
-3. **Expose privacy-safe diagnostics.** A command could report counts by clear
-   reason without recording prompts or suggestion text. This would distinguish
-   provider fallback, autocomplete, resize, and stale-revision behavior in real
-   terminals.
+3. **Add public pending-autocomplete awareness.** Pi currently exposes whether
+   autocomplete is visible, not whether an async completion request is pending.
+   A lifecycle API would let the extension avoid painting immediately before a
+   slow native menu appears.
 4. **Make pacing adaptive only with evidence.** The 250 ms default is a balanced
    baseline. Faster or slower delays should follow measured typing cadence,
    provider latency, and request cancellation rates rather than adding an

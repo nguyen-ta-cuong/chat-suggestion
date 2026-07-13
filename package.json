@@ -1,6 +1,6 @@
 {
   "name": "@chat-suggestion/adapter-pi",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Safe inline prompt suggestions for the Pi coding agent",
   "type": "module",
   "publishConfig": {
@@ -23,7 +23,7 @@
     "ghost-text"
   ],
   "engines": {
-    "node": ">=20"
+    "node": ">=22.19.0"
   },
   "exports": {
     ".": {

@@ -16,6 +16,7 @@ export interface PiSuggestionExtensionOptions {
   readonly bridge: SuggestionBridge;
   readonly debounceMs?: number;
   readonly initiallyEnabled?: boolean;
+  readonly version?: string;
 }
 
 export function createPiSuggestionExtension(
@@ -27,6 +28,7 @@ export function createPiSuggestionExtension(
     let enabled = options.initiallyEnabled ?? true;
     let capability: "eol-only" | "none" = "none";
     let downgradeReason = "not initialized";
+    let lastClearReason: Parameters<PiSuggestionEditor["clear"]>[0] | undefined;
 
     const clearActive = (
       reason: Parameters<PiSuggestionEditor["clear"]>[0],
@@ -55,6 +57,9 @@ export function createPiSuggestionExtension(
       const editorOptions: Omit<PiEditorOptions, "keybindings" | "styleDim"> = {
         bridge: options.bridge,
         enabled,
+        onClear: (reason) => {
+          lastClearReason = reason;
+        },
         ...(options.debounceMs === undefined
           ? {}
           : { debounceMs: options.debounceMs }),
@@ -138,8 +143,9 @@ export function createPiSuggestionExtension(
           capability === "eol-only"
             ? "native eol-only"
             : `none: ${downgradeReason}`;
+        const version = options.version ? ` v${options.version}` : "";
         context.ui.notify(
-          `Chat suggestions: ${enabled ? "on" : "off"}; capability ${detail}`,
+          `Chat suggestions${version}: ${enabled ? "on" : "off"}; capability ${detail}; last clear ${lastClearReason ?? "none"}`,
           "info",
         );
       },

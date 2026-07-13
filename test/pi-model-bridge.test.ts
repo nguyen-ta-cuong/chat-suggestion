@@ -1,4 +1,10 @@
-import { utf8ByteLength, type PromptSnapshot } from "../src/suggestion.js";
+import {
+  MAX_SUGGESTION_TOKENS,
+  parseSuggestionCandidate,
+  utf8ByteLength,
+  type PromptSnapshot,
+  type SuggestionCandidate,
+} from "../src/suggestion.js";
 import type {
   AssistantMessage,
   AssistantMessageEvent,
@@ -188,6 +194,99 @@ describe("Pi model suggestion bridge", () => {
     expect(candidate?.edit.text).toBe(" tests");
   });
 
+  it("returns only protocol-valid candidates when provider usage exceeds the request limit", async () => {
+    const updates: SuggestionCandidate[] = [];
+    async function* stream(): AsyncIterable<AssistantMessageEvent> {
+      await Promise.resolve();
+      yield {
+        type: "text_delta",
+        contentIndex: 0,
+        delta: " tests",
+        partial: assistantMessage(" tests"),
+      };
+      yield {
+        type: "done",
+        reason: "stop",
+        message: assistantMessage(" tests and coverage", 70, 68),
+      };
+    }
+
+    const candidate = await createPiModelSuggestionBridge({
+      getContext: createContext,
+      stream,
+    }).suggest(
+      createSnapshot("fix auth"),
+      "bounded-final-usage",
+      new AbortController().signal,
+      (partial) => updates.push(partial),
+    );
+
+    expect(parseSuggestionCandidate(updates[0]).ok).toBe(true);
+    expect(parseSuggestionCandidate(candidate).ok).toBe(true);
+    expect(candidate?.tokenCount).toBe(2);
+  });
+
+  it("bounds provider usage when no reasoning breakdown is available", async () => {
+    async function* stream(): AsyncIterable<AssistantMessageEvent> {
+      await Promise.resolve();
+      yield {
+        type: "done",
+        reason: "stop",
+        message: assistantMessage(" tests", 65),
+      };
+    }
+
+    const candidate = await createPiModelSuggestionBridge({
+      getContext: createContext,
+      stream,
+    }).suggest(
+      createSnapshot("fix auth"),
+      "bounded-opaque-usage",
+      new AbortController().signal,
+    );
+
+    expect(candidate?.tokenCount).toBe(MAX_SUGGESTION_TOKENS);
+    expect(parseSuggestionCandidate(candidate).ok).toBe(true);
+  });
+
+  it("does not overwrite a safe partial with malformed streamed Unicode", async () => {
+    const updates: string[] = [];
+    async function* stream(): AsyncIterable<AssistantMessageEvent> {
+      await Promise.resolve();
+      yield {
+        type: "text_delta",
+        contentIndex: 0,
+        delta: " tests",
+        partial: assistantMessage(" tests"),
+      };
+      yield {
+        type: "text_delta",
+        contentIndex: 0,
+        delta: "\ud800 now",
+        partial: assistantMessage(" tests\ud800 now"),
+      };
+      yield {
+        type: "error",
+        reason: "error",
+        error: assistantMessage(" tests\ud800 now"),
+      };
+    }
+
+    const candidate = await createPiModelSuggestionBridge({
+      getContext: createContext,
+      stream,
+    }).suggest(
+      createSnapshot("fix auth"),
+      "malformed-stream-fallback",
+      new AbortController().signal,
+      (partial) => updates.push(partial.edit.text),
+    );
+
+    expect(updates).toEqual([" tests"]);
+    expect(candidate?.edit.text).toBe(" tests");
+    expect(parseSuggestionCandidate(candidate).ok).toBe(true);
+  });
+
   it("keeps the last safe streamed candidate after a provider error", async () => {
     async function* stream(): AsyncIterable<AssistantMessageEvent> {
       await Promise.resolve();
@@ -375,10 +474,18 @@ function createSnapshot(text: string): PromptSnapshot {
   };
 }
 
-function assistantMessage(text: string, output = 2): AssistantMessage {
+function assistantMessage(
+  text: string,
+  output = 2,
+  reasoning?: number,
+): AssistantMessage {
+  const usage = {
+    output,
+    ...(reasoning === undefined ? {} : { reasoning }),
+  };
   return {
     content: [{ type: "text", text }],
-    usage: { output },
+    usage,
     stopReason: "stop",
   };
 }
