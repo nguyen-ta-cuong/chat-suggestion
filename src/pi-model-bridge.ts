@@ -96,48 +96,52 @@ export function createPiModelSuggestionBridge(
 
       const textParts = new Map<number, string>();
       let lastSafeCandidate: SuggestionCandidate | null = null;
-      for await (const event of stream(
-        context.model,
-        request,
-        requestOptions,
-      )) {
-        if (signal.aborted) return null;
+      try {
+        for await (const event of stream(
+          context.model,
+          request,
+          requestOptions,
+        )) {
+          if (signal.aborted) return null;
 
-        if (event.type === "text_delta") {
-          textParts.set(
-            event.contentIndex,
-            `${textParts.get(event.contentIndex) ?? ""}${event.delta}`,
-          );
-          const candidate = candidateFromText(
-            snapshot,
-            requestId,
-            joinTextParts(textParts),
-            0,
-            true,
-          );
-          if (
-            candidate &&
-            candidate.edit.text !== lastSafeCandidate?.edit.text
-          ) {
-            lastSafeCandidate = candidate;
-            onUpdate?.(candidate);
+          if (event.type === "text_delta") {
+            textParts.set(
+              event.contentIndex,
+              `${textParts.get(event.contentIndex) ?? ""}${event.delta}`,
+            );
+            const candidate = candidateFromText(
+              snapshot,
+              requestId,
+              joinTextParts(textParts),
+              0,
+              true,
+            );
+            if (
+              candidate &&
+              candidate.edit.text !== lastSafeCandidate?.edit.text
+            ) {
+              lastSafeCandidate = candidate;
+              onUpdate?.(candidate);
+            }
+            continue;
           }
-          continue;
-        }
 
-        if (event.type === "text_end") {
-          textParts.set(event.contentIndex, event.content);
-          continue;
-        }
+          if (event.type === "text_end") {
+            textParts.set(event.contentIndex, event.content);
+            continue;
+          }
 
-        if (event.type === "done") {
-          return (
-            candidateFromMessage(snapshot, requestId, event.message) ??
-            lastSafeCandidate
-          );
-        }
+          if (event.type === "done") {
+            return (
+              candidateFromMessage(snapshot, requestId, event.message) ??
+              lastSafeCandidate
+            );
+          }
 
-        if (event.type === "error") return lastSafeCandidate;
+          if (event.type === "error") return lastSafeCandidate;
+        }
+      } catch {
+        return signal.aborted ? null : lastSafeCandidate;
       }
 
       return lastSafeCandidate;
