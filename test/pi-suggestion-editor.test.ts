@@ -234,11 +234,11 @@ describe("PiSuggestionEditor key arbitration and freshness", () => {
     const suggest = vi.fn(() => Promise.resolve(null));
     const editor = createEditor({ suggest }, undefined, 1, null);
 
-    editor.handleInput("  a");
+    editor.handleInput("a b");
     await vi.runAllTimersAsync();
     expect(suggest).not.toHaveBeenCalled();
 
-    editor.handleInput("bc");
+    editor.handleInput("c");
     await vi.runAllTimersAsync();
     expect(suggest).toHaveBeenCalledOnce();
     expect(DEFAULT_MINIMUM_DRAFT_CHARACTERS).toBe(3);
