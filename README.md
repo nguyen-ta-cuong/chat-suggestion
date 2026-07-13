@@ -67,7 +67,9 @@ npm run check
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md) before proposing a change. The
 [architecture guide](docs/architecture.md) explains the safety boundaries and
-request lifecycle.
+request lifecycle. The [TUI stability review](docs/flicker-performance-review.md)
+documents the ghost-text root cause, shipped optimizations, follow-up priorities,
+and the Ralph iteration method used for the fix.
 
 ## Project status
 
