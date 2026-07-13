@@ -258,8 +258,10 @@ export class PiSuggestionEditor extends CustomEditor {
       !this.enabled ||
       this.disposed ||
       utf8ByteLength(position.text) > MAX_DRAFT_BYTES ||
-      countNonWhitespaceCharacters(position.text) <
-        this.minimumDraftCharacters ||
+      !hasMinimumNonWhitespaceCharacters(
+        position.text,
+        this.minimumDraftCharacters,
+      ) ||
       !this.isAtLogicalEnd(position)
     )
       return;
@@ -446,12 +448,19 @@ export class PiSuggestionEditor extends CustomEditor {
   }
 }
 
-function countNonWhitespaceCharacters(value: string): number {
+function hasMinimumNonWhitespaceCharacters(
+  value: string,
+  minimum: number,
+): boolean {
+  if (minimum <= 0) return true;
+
   let count = 0;
   for (const character of value) {
-    if (/\S/u.test(character)) count += 1;
+    if (!/\S/u.test(character)) continue;
+    count += 1;
+    if (count >= minimum) return true;
   }
-  return count;
+  return false;
 }
 
 function cursorByteOffset(text: string, line: number, col: number): number {
